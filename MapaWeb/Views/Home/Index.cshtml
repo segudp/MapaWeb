@@ -6,15 +6,58 @@
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin="" />
 
+<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+
 <style>
+    /* Estilo del Mapa */
     #mapaIGN {
         height: 600px; 
         width: 100%;
     }
+
+    /* Estilo para que el buscador se vea bien */
+    .leaflet-control-geocoder {
+        z-index: 1000; /* Asegura que se vea arriba de todo */
+    }
+
+    /* Estilos para los botones del CRUD */
+    .btn-borrar, .btn-editar, .btn-guardar {
+        color: white;
+        border: none;
+        padding: 4px 8px;
+        cursor: pointer;
+        font-size: 12px;
+        margin-top: 5px;
+        border-radius: 3px;
+    }
+
+    .btn-borrar {
+        background-color: #f44336; /* Rojo */
+    }
+
+        .btn-borrar:hover {
+            background-color: #d32f2f;
+        }
+
+    .btn-editar {
+        background-color: #007bff; /* Azul */
+    }
+
+        .btn-editar:hover {
+            background-color: #0056b3;
+        }
+
+    .btn-guardar {
+        background-color: #4CAF50; /* Verde */
+    }
+
+        .btn-guardar:hover {
+            background-color: #45a049;
+        }
 </style>
 
 <h2>Mapa con API del IGN</h2>
-<p>Haz clic en el mapa para agregar un nuevo marcador.</p>
+<p>Haz clic en el mapa para agregar un nuevo marcador o usa el buscador.</p>
 
 <div id="mapaIGN"></div>
 
@@ -22,15 +65,22 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
+
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
     <script>
         var map;
-        var marcadoresEnMapa = {};
+        var marcadoresEnMapa = {}; // Objeto para guardar los 'pins'
+        var searchMarker = null;
+
         document.addEventListener("DOMContentLoaded", function () {
 
+            // --- Configuración Inicial ---
             const latitud = -38.416097;
             const longitud = -63.616672;
             const zoom = 5;
 
+            // --- Capas Base ---
             var argenmap = L.tileLayer('https://wms.ign.gob.ar/geoserver/gwc/service/tms/1.0.0/capabaseargenmap@EPSG%3A3857@png/{z}/{x}/{-y}.png', {
                 attribution: '© <a href="https://www.ign.gob.ar/">IGN</a>',
                 minZoom: 1,
@@ -43,34 +93,83 @@
                 "Mapa Estándar (IGN)": argenmap,
                 "Satelital (Esri)": mapaSatelital
             };
+
+            // --- Inicialización del Mapa ---
             map = L.map('mapaIGN', {
                 center: [latitud, longitud],
                 zoom: zoom,
                 layers: [argenmap]
             });
+
+            // --- Control de Capas ---
             L.control.layers(baseMaps).addTo(map);
 
+            // --- Control de Búsqueda (Buscador Nominatim) ---
+            var geocoder = L.Control.geocoder({
+                defaultMarkGeocode: false, // Lo dejamos en false, lo hacemos manual
+                position: 'topright',
+                placeholder: 'Buscar calles o lugares...',
+                geocoder: L.Control.Geocoder.nominatim({
+                    geocodingQueryParams: {
+                        countrycodes: 'ar' // Limitar búsqueda a Argentina
+                    }
+                })
+            })
+            .on('markgeocode', function(e) {
+                // Cuando el usuario elige un resultado
+                var latlng = e.geocode.center;
+
+                // --- 1. Borrar marcador de búsqueda anterior (si existe) ---
+                if (searchMarker) {
+                    map.removeLayer(searchMarker);
+                }
+
+                // --- 2. Crear el nuevo marcador ---
+                searchMarker = L.marker(latlng).addTo(map);
+
+                // --- 3. Ponerle un popup con el nombre y abrirlo ---
+                searchMarker.bindPopup(e.geocode.name).openPopup();
+
+                // --- 4. Centrar el mapa ---
+                map.flyTo(latlng, 16);
+            })
+            .addTo(map);
+            
+
+            // --- Carga del CRUD ---
             cargarMarcadores();
+
+            // Evento de clic en el mapa (para crear)
             map.on('click', function(e) {
                 abrirPopupParaNuevoMarcador(e.latlng);
             });
         });
+
+        // --- FUNCIONES PARA EL CRUD ---
+
+        // Función para agregar un marcador al mapa
         function agregarMarcadorAlMapa(marcador) {
             var pin = L.marker([marcador.latitud, marcador.longitud]).addTo(map);
-            pin.markerData = marcador;
+            pin.markerData = marcador; // Guardamos los datos en el pin
+
+            // Pasamos el 'event' a las funciones para detener la propagación
             var popupContent = `
                 <div id="popup-ver-${marcador.id}">
                     <b>${marcador.nombre}</b>
                     <br>
-                    <button class="btn-editar" onclick="mostrarFormularioEdicion(event, ${marcador.id})">Editar</button> <button class="btn-borrar" onclick="borrarMarcador(event, ${marcador.id})">Borrar</button> </div>
+                    <button class="btn-editar" onclick="mostrarFormularioEdicion(event, ${marcador.id})">Editar</button>
+                    <button class="btn-borrar" onclick="borrarMarcador(event, ${marcador.id})">Borrar</button>
+                </div>
             `;
             pin.bindPopup(popupContent);
             marcadoresEnMapa[marcador.id] = pin;
         }
 
+        // LEER (Read): Carga todos los marcadores desde la API
         async function cargarMarcadores() {
             try {
                 const response = await fetch('/api/marcadores');
+                if (!response.ok) throw new Error('Error al cargar marcadores');
                 const marcadores = await response.json();
                 marcadores.forEach(function(marcador) {
                     agregarMarcadorAlMapa(marcador);
@@ -80,9 +179,11 @@
             }
         }
 
+        // CREAR (Create): Muestra el popup para pedir el nombre
         function abrirPopupParaNuevoMarcador(latlng) {
             var lat = latlng.lat.toFixed(6);
             var lng = latlng.lng.toFixed(6);
+
             var popupContent = `
                 <div>
                     <b>Nuevo Marcador</b><br>
@@ -90,14 +191,17 @@
                     <hr style="margin: 4px 0;">
                     Nombre: <input type='text' id='inputNombreMarcador' />
                     <br>
-                    <button onclick='guardarMarcador(event, ${latlng.lat}, ${latlng.lng})'>Guardar</button> </div>`;
+                    <button onclick='guardarMarcador(event, ${latlng.lat}, ${latlng.lng})'>Guardar</button>
+                </div>`;
             L.popup()
                 .setLatLng(latlng)
                 .setContent(popupContent)
                 .openOn(map);
         }
+
+        // CREAR (Create): Guarda el nuevo marcador en la BBDD
         async function guardarMarcador(event, lat, lng) {
-            event.stopPropagation(); 
+            event.stopPropagation(); // Detenemos el clic
             const nombre = document.getElementById('inputNombreMarcador').value;
             if (!nombre) { alert('Por favor, ingresa un nombre.'); return; }
             const nuevoMarcador = { nombre: nombre, latitud: lat, longitud: lng };
@@ -116,8 +220,10 @@
                 alert('No se pudo guardar el marcador.');
             }
         }
+
+        // BORRAR (Delete)
         async function borrarMarcador(event, id) {
-            event.stopPropagation(); 
+            event.stopPropagation(); // Detenemos el clic
             if (!confirm("¿Seguro que querés borrar este marcador?")) return;
             try {
                 const response = await fetch(`/api/marcadores/${id}`, { method: 'DELETE' });
@@ -131,37 +237,46 @@
                 alert('No se pudo borrar el marcador.');
             }
         }
+
+        // EDITAR (Update) - Paso 1: Mostrar formulario
         function mostrarFormularioEdicion(event, id) {
-            event.stopPropagation(); 
+            event.stopPropagation(); // Detenemos el clic
             var pin = marcadoresEnMapa[id];
             var data = pin.markerData;
+
             var formContent = `
                 <div>
                     <b>Editando:</b>
                     <br>
                     Nombre: <input type='text' id='inputEditarNombre-${id}' value='${data.nombre}' />
                     <br>
-                    <button class="btn-guardar" onclick="guardarEdicion(event, ${id})">Guardar</button> <button onclick="cancelarEdicion(event, ${id})">Cancelar</button> </div>
+                    <button class="btn-guardar" onclick="guardarEdicion(event, ${id})">Guardar</button>
+                    <button onclick="cancelarEdicion(event, ${id})">Cancelar</button>
+                </div>
             `;
             pin.setPopupContent(formContent);
         }
 
+        // EDITAR (Update) - Paso 2: Cancelar
         function cancelarEdicion(event, id) {
-            event.stopPropagation(); 
-
+            event.stopPropagation(); // Detenemos el clic
             var pin = marcadoresEnMapa[id];
             var data = pin.markerData;
              var popupContent = `
                 <div id="popup-ver-${data.id}">
                     <b>${data.nombre}</b>
                     <br>
-                    <button class="btn-editar" onclick="mostrarFormularioEdicion(event, ${data.id})">Editar</button> <button class="btn-borrar" onclick="borrarMarcador(event, ${data.id})">Borrar</button> </div>
+                    <button class="btn-editar" onclick="mostrarFormularioEdicion(event, ${data.id})">Editar</button>
+                    <button class="btn-borrar" onclick="borrarMarcador(event, ${data.id})">Borrar</button>
+                </div>
             `;
             pin.setPopupContent(popupContent);
         }
 
+        // EDITAR (Update) - Paso 3: Guardar cambios
         async function guardarEdicion(event, id) {
-            event.stopPropagation(); 
+            event.stopPropagation(); // Detenemos el clic
+
             var pin = marcadoresEnMapa[id];
             var dataOriginal = pin.markerData;
             const nuevoNombre = document.getElementById(`inputEditarNombre-${id}`).value;
@@ -180,12 +295,16 @@
                 });
                 if (!response.ok) throw new Error('Error al actualizar en la API');
 
-                pin.markerData.nombre = nuevoNombre; 
+                pin.markerData.nombre = nuevoNombre; // Actualizamos el dato local
+
+                // Regeneramos el popup de "Ver"
                 var popupContent = `
                     <div id="popup-ver-${id}">
                         <b>${nuevoNombre}</b>
                         <br>
-                        <button class="btn-editar" onclick="mostrarFormularioEdicion(event, ${id})">Editar</button> <button class="btn-borrar" onclick="borrarMarcador(event, ${id})">Borrar</button> </div>
+                        <button class="btn-editar" onclick="mostrarFormularioEdicion(event, ${id})">Editar</button>
+                        <button class="btn-borrar" onclick="borrarMarcador(event, ${id})">Borrar</button>
+                    </div>
                 `;
                 pin.setPopupContent(popupContent);
 
@@ -196,9 +315,4 @@
         }
 
     </script>
-
-    <style>
-        .btn-borrar, .btn-editar, .btn-guardar {
-        }
-    </style>
 }
