@@ -10,8 +10,6 @@ namespace MapaWeb.Data
         : base(options)
         {
         }
-
-        // Esto crea la tabla "Marcadores" en la BBDD
         public DbSet<Marcador> Marcadores { get; set; }
     }
 }

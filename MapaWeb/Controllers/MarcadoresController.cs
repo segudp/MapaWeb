@@ -1,92 +1,71 @@
 ﻿using MapaWeb.Data;
 using MapaWeb.Models;
-// Controllers/MarcadoresController.cs
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore; // Necesario para el DbContext
+using Microsoft.EntityFrameworkCore;
 
 namespace MapaWeb.Controllers
 {
-    [Route("api/[controller]")] // La URL será /api/marcadores
+    [Route("api/[controller]")]
     [ApiController]
     public class MarcadoresController : ControllerBase
     {
-        private readonly AppDbContext _context; // Inyecta tu DbContext
-
+        private readonly AppDbContext _context; 
         public MarcadoresController(AppDbContext context)
         {
             _context = context;
         }
-
-        // LEER (Read)
-        // GET: /api/marcadores
+        // Devuelve la lista completa de marcadores
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Marcador>>> GetMarcadores()
         {
-            // Devuelve todos los marcadores de la BBDD como un JSON
             return await _context.Marcadores.ToListAsync();
         }
-
-        // CREAR (Create)
-        // POST: /api/marcadores
+        // Crea un nuevo marcador a partir de la solicitud
         [HttpPost]
         public async Task<ActionResult<Marcador>> PostMarcador([FromBody] Marcador marcador)
         {
+            // Valida el modelo recibido
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
-
-            // Agrega el nuevo marcador y guarda los cambios
+            // Agrega el nuevo marcador y guarda
             _context.Marcadores.Add(marcador);
             await _context.SaveChangesAsync();
-
-            // Devuelve el marcador creado (con su nuevo Id)
             return CreatedAtAction(nameof(GetMarcadores), new { id = marcador.Id }, marcador);
         }
-
-
-        // EDITAR (Update)
-        // PUT: /api/marcadores/5
+        // Actualiza el nombre de un marcador que ya existe
         [HttpPut("{id}")]
         public async Task<IActionResult> PutMarcador(int id, [FromBody] Marcador marcadorActualizado)
         {
-            // Busca el marcador original en la base de datos
             var marcador = await _context.Marcadores.FindAsync(id);
-
             if (marcador == null)
             {
                 return NotFound();
             }
 
-            // Actualiza las propiedades (en este caso, solo el nombre)
+            // Actualiza el nombre del marcador
             marcador.Nombre = marcadorActualizado.Nombre;
-            // Podrías actualizar también latitud y longitud si quisieras
-            // marcador.latitud = marcadorActualizado.latitud;
-            // marcador.longitud = marcadorActualizado.longitud;
 
             try
             {
-                // Guarda los cambios en la BBDD
                 await _context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
-                // (Manejo de errores por si alguien más lo borró, etc.)
+                // Verifica si el marcador sigue existiendo
                 if (!_context.Marcadores.Any(e => e.Id == id))
                 {
                     return NotFound();
                 }
                 else
                 {
-                    throw;
+                    throw; 
                 }
             }
-
-            // Devuelve "204 No Content" (éxito)
             return NoContent();
         }
-
-
+        // Elimina un marcador por ID
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteMarcador(int id)
         {
@@ -97,11 +76,11 @@ namespace MapaWeb.Controllers
                 return NotFound();
             }
 
+            // Elimina el marcador y guarda 
             _context.Marcadores.Remove(marcador);
             await _context.SaveChangesAsync();
 
             return NoContent();
         }
-
     }
 }

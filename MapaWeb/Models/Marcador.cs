@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 namespace MapaWeb.Models
 {
-    
     public class Marcador
     {
         public int Id { get; set; }

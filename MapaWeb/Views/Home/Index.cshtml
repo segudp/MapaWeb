@@ -8,7 +8,7 @@
 
 <style>
     #mapaIGN {
-        height: 600px; /* Dale la altura que necesites */
+        height: 600px; 
         width: 100%;
     }
 </style>
@@ -22,14 +22,11 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
-
     <script>
         var map;
         var marcadoresEnMapa = {};
-
         document.addEventListener("DOMContentLoaded", function () {
 
-            // ... (Toda tu inicialización del mapa y capas está perfecta) ...
             const latitud = -38.416097;
             const longitud = -63.616672;
             const zoom = 5;
@@ -54,20 +51,13 @@
             L.control.layers(baseMaps).addTo(map);
 
             cargarMarcadores();
-
-            // EL LISTENER DEL MAPA QUEDA IGUAL
             map.on('click', function(e) {
                 abrirPopupParaNuevoMarcador(e.latlng);
             });
         });
-
-        // --- Funciones para el CRUD ---
-
         function agregarMarcadorAlMapa(marcador) {
             var pin = L.marker([marcador.latitud, marcador.longitud]).addTo(map);
             pin.markerData = marcador;
-
-            // Pasamos el 'event' a las funciones
             var popupContent = `
                 <div id="popup-ver-${marcador.id}">
                     <b>${marcador.nombre}</b>
@@ -79,7 +69,6 @@
         }
 
         async function cargarMarcadores() {
-            // ... (Esta función no cambia) ...
             try {
                 const response = await fetch('/api/marcadores');
                 const marcadores = await response.json();
@@ -94,8 +83,6 @@
         function abrirPopupParaNuevoMarcador(latlng) {
             var lat = latlng.lat.toFixed(6);
             var lng = latlng.lng.toFixed(6);
-
-            // Pasamos el 'event' a la función de guardar
             var popupContent = `
                 <div>
                     <b>Nuevo Marcador</b><br>
@@ -109,10 +96,8 @@
                 .setContent(popupContent)
                 .openOn(map);
         }
-
         async function guardarMarcador(event, lat, lng) {
-            event.stopPropagation(); // <-- CAMBIO: Detenemos el clic
-            // ... (El resto de la función es igual) ...
+            event.stopPropagation(); 
             const nombre = document.getElementById('inputNombreMarcador').value;
             if (!nombre) { alert('Por favor, ingresa un nombre.'); return; }
             const nuevoMarcador = { nombre: nombre, latitud: lat, longitud: lng };
@@ -131,10 +116,8 @@
                 alert('No se pudo guardar el marcador.');
             }
         }
-
         async function borrarMarcador(event, id) {
-            event.stopPropagation(); // <-- CAMBIO: Detenemos el clic
-            // ... (El resto de la función es igual) ...
+            event.stopPropagation(); 
             if (!confirm("¿Seguro que querés borrar este marcador?")) return;
             try {
                 const response = await fetch(`/api/marcadores/${id}`, { method: 'DELETE' });
@@ -148,16 +131,10 @@
                 alert('No se pudo borrar el marcador.');
             }
         }
-
-        // --- FUNCIONES DE EDITAR (TAMBIÉN CON CAMBIOS) ---
-
         function mostrarFormularioEdicion(event, id) {
-            event.stopPropagation(); // <-- CAMBIO: Detenemos el clic
-
+            event.stopPropagation(); 
             var pin = marcadoresEnMapa[id];
             var data = pin.markerData;
-
-            // Pasamos el 'event' a las funciones
             var formContent = `
                 <div>
                     <b>Editando:</b>
@@ -170,11 +147,10 @@
         }
 
         function cancelarEdicion(event, id) {
-            event.stopPropagation(); // <-- CAMBIO: Detenemos el clic
+            event.stopPropagation(); 
 
             var pin = marcadoresEnMapa[id];
             var data = pin.markerData;
-
              var popupContent = `
                 <div id="popup-ver-${data.id}">
                     <b>${data.nombre}</b>
@@ -185,20 +161,17 @@
         }
 
         async function guardarEdicion(event, id) {
-            event.stopPropagation(); // <-- CAMBIO: Detenemos el clic
-
+            event.stopPropagation(); 
             var pin = marcadoresEnMapa[id];
             var dataOriginal = pin.markerData;
             const nuevoNombre = document.getElementById(`inputEditarNombre-${id}`).value;
             if (!nuevoNombre) { alert('El nombre no puede estar vacío.'); return; }
-
             const marcadorActualizado = {
                 id: id,
                 nombre: nuevoNombre,
                 latitud: dataOriginal.latitud,
                 longitud: dataOriginal.longitud
             };
-
             try {
                 const response = await fetch(`/api/marcadores/${id}`, {
                     method: 'PUT',
@@ -207,10 +180,7 @@
                 });
                 if (!response.ok) throw new Error('Error al actualizar en la API');
 
-                pin.markerData.nombre = nuevoNombre; // Actualizamos el dato local
-
-                // Re-generamos el popup de "Ver" (en vez de llamar a cancelar,
-                // es más limpio hacerlo directo)
+                pin.markerData.nombre = nuevoNombre; 
                 var popupContent = `
                     <div id="popup-ver-${id}">
                         <b>${nuevoNombre}</b>
@@ -229,7 +199,6 @@
 
     <style>
         .btn-borrar, .btn-editar, .btn-guardar {
-            /* ... tus estilos ... */
         }
     </style>
 }
