@@ -116,25 +116,16 @@
                 })
             })
             .on('markgeocode', function(e) {
-                // Cuando el usuario elige un resultado
                 var latlng = e.geocode.center;
-
-                // --- 1. Borrar marcador de búsqueda anterior (si existe) ---
                 if (searchMarker) {
                     map.removeLayer(searchMarker);
                 }
-
-                // --- 2. Crear el nuevo marcador ---
                 searchMarker = L.marker(latlng).addTo(map);
-
-                // --- 3. Ponerle un popup con el nombre y abrirlo ---
                 searchMarker.bindPopup(e.geocode.name).openPopup();
-
-                // --- 4. Centrar el mapa ---
                 map.flyTo(latlng, 16);
             })
             .addTo(map);
-            
+
 
             // --- Carga del CRUD ---
             cargarMarcadores();
@@ -147,12 +138,30 @@
 
         // --- FUNCIONES PARA EL CRUD ---
 
-        // Función para agregar un marcador al mapa
+        // ===================================================================
+        // AQUÍ ESTÁ EL CAMBIO
+        // ===================================================================
         function agregarMarcadorAlMapa(marcador) {
-            var pin = L.marker([marcador.latitud, marcador.longitud]).addTo(map);
-            pin.markerData = marcador; // Guardamos los datos en el pin
+            console.log("Marcador recibido:", marcador); // ← AGREGÁ ESTA LÍNEA
+            // 1. Leemos las coordenadas del objeto 'ubicacion'
+            //    GeoJSON es [Longitud, Latitud]
+            // const coords = marcador.ubicacion.coordinates;
 
-            // Pasamos el 'event' a las funciones para detener la propagación
+            // 2. Leaflet espera [Latitud, Longitud], así que damos vuelta el array
+            const latLng = [marcador.latitud, marcador.longitud];
+
+            var pin = L.marker(latLng).addTo(map);
+
+            // 3. Guardamos los datos "aplanados" en el pin.
+            //    Esto es CLAVE para que la función 'guardarEdicion'
+            //    siga funcionando sin cambios.
+            pin.markerData = {
+                id: marcador.id,
+                nombre: marcador.nombre,
+                latitud: marcador.latitud,
+                longitud: marcador.longitud
+            };
+
             var popupContent = `
                 <div id="popup-ver-${marcador.id}">
                     <b>${marcador.nombre}</b>
@@ -160,12 +169,17 @@
                     <button class="btn-editar" onclick="mostrarFormularioEdicion(event, ${marcador.id})">Editar</button>
                     <button class="btn-borrar" onclick="borrarMarcador(event, ${marcador.id})">Borrar</button>
                 </div>
-            `;
+        `;
             pin.bindPopup(popupContent);
             marcadoresEnMapa[marcador.id] = pin;
         }
+        // ===================================================================
+        // FIN DEL CAMBIO
+        // ===================================================================
+
 
         // LEER (Read): Carga todos los marcadores desde la API
+        // (Esta función NO CAMBIA, porque solo pasa el 'marcador' a la función que SÍ cambiamos)
         async function cargarMarcadores() {
             try {
                 const response = await fetch('/api/marcadores');
@@ -180,6 +194,7 @@
         }
 
         // CREAR (Create): Muestra el popup para pedir el nombre
+        // (Esta función NO CAMBIA)
         function abrirPopupParaNuevoMarcador(latlng) {
             var lat = latlng.lat.toFixed(6);
             var lng = latlng.lng.toFixed(6);
@@ -200,8 +215,11 @@
         }
 
         // CREAR (Create): Guarda el nuevo marcador en la BBDD
+        // (Esta función NO CAMBIA. Ya envía el DTO {nombre, latitud, longitud}
+        // y recibe el objeto 'marcadorGuardado' completo, que pasa
+        // a nuestra nueva función 'agregarMarcadorAlMapa')
         async function guardarMarcador(event, lat, lng) {
-            event.stopPropagation(); // Detenemos el clic
+            event.stopPropagation();
             const nombre = document.getElementById('inputNombreMarcador').value;
             if (!nombre) { alert('Por favor, ingresa un nombre.'); return; }
             const nuevoMarcador = { nombre: nombre, latitud: lat, longitud: lng };
@@ -222,8 +240,9 @@
         }
 
         // BORRAR (Delete)
+        // (Esta función NO CAMBIA)
         async function borrarMarcador(event, id) {
-            event.stopPropagation(); // Detenemos el clic
+            event.stopPropagation();
             if (!confirm("¿Seguro que querés borrar este marcador?")) return;
             try {
                 const response = await fetch(`/api/marcadores/${id}`, { method: 'DELETE' });
@@ -239,8 +258,9 @@
         }
 
         // EDITAR (Update) - Paso 1: Mostrar formulario
+        // (Esta función NO CAMBIA)
         function mostrarFormularioEdicion(event, id) {
-            event.stopPropagation(); // Detenemos el clic
+            event.stopPropagation();
             var pin = marcadoresEnMapa[id];
             var data = pin.markerData;
 
@@ -258,8 +278,9 @@
         }
 
         // EDITAR (Update) - Paso 2: Cancelar
+        // (Esta función NO CAMBIA)
         function cancelarEdicion(event, id) {
-            event.stopPropagation(); // Detenemos el clic
+            event.stopPropagation();
             var pin = marcadoresEnMapa[id];
             var data = pin.markerData;
              var popupContent = `
@@ -274,8 +295,11 @@
         }
 
         // EDITAR (Update) - Paso 3: Guardar cambios
+        // (Esta función NO CAMBIA. Gracias a que 'pin.markerData'
+        // ahora se guarda aplanado, sigue teniendo 'latitud' y 'longitud'
+        // para enviar el DTO de actualización correctamente).
         async function guardarEdicion(event, id) {
-            event.stopPropagation(); // Detenemos el clic
+            event.stopPropagation();
 
             var pin = marcadoresEnMapa[id];
             var dataOriginal = pin.markerData;
@@ -297,7 +321,6 @@
 
                 pin.markerData.nombre = nuevoNombre; // Actualizamos el dato local
 
-                // Regeneramos el popup de "Ver"
                 var popupContent = `
                     <div id="popup-ver-${id}">
                         <b>${nuevoNombre}</b>

@@ -1,16 +1,21 @@
 using Microsoft.EntityFrameworkCore;
-using MapaWeb.Data; 
+using MapaWeb.Data;
 
 
 var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(connectionString));
 
-builder.Services.AddControllersWithViews(); 
-builder.Services.AddControllers(); 
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(
+        connectionString,
+        sqlOptions => sqlOptions.UseNetTopologySuite()
+    )
+);
+
+builder.Services.AddControllersWithViews();
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
