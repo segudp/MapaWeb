@@ -13,7 +13,7 @@
 <style>
     /* Estilo del Mapa */
     #mapaIGN {
-        height: 600px; 
+        height: 600px;
         width: 100%;
     }
 
@@ -60,10 +60,61 @@
     .leaflet-routing-container {
         display: none;
     }
+
+    /* Estilos para el menú desplegable */
+    .menu-desplegable {
+        background: white;
+        border-radius: 4px;
+        box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+        text-align: right; /* Alineación a la derecha */
+    }
+
+        .menu-desplegable .menu-toggle {
+            width: 34px;
+            height: 34px;
+            line-height: 34px;
+            text-align: center;
+            font-size: 18px;
+            text-decoration: none;
+            display: inline-block; /* Cambio para alineación */
+            cursor: pointer;
+            background: white;
+            border-bottom: 1px solid #ccc;
+        }
+
+            .menu-desplegable .menu-toggle:hover {
+                background: #f4f4f4;
+            }
+
+        .menu-desplegable .menu-items {
+            display: none;
+            padding: 5px;
+            text-align: left; /* Items alineados a la izquierda dentro del menú */
+        }
+
+        .menu-desplegable.abierto .menu-items {
+            display: block;
+        }
+
+        .menu-desplegable .menu-item {
+            width: 100%;
+            padding: 8px 12px;
+            margin: 2px 0;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            cursor: pointer;
+            text-align: left;
+            font-size: 13px;
+        }
+
+            .menu-desplegable .menu-item:hover {
+                background: #f4f4f4;
+            }
 </style>
 
 <h2>Mapa con API del IGN</h2>
-<p>Haz clic en el mapa para agregar un nuevo marcador o usa el buscador.</p>
+<p>Haz <strong>doble clic</strong> en el mapa para agregar un nuevo marcador o usa el buscador.</p>
 
 <div id="mapaIGN"></div>
 
@@ -104,16 +155,24 @@
             map = L.map('mapaIGN', {
                 center: [latitud, longitud],
                 zoom: zoom,
-                layers: [argenmap]
+                layers: [argenmap],
+                zoomControl: false // Desactivamos el control de zoom por defecto
             });
 
-            // --- Control de Capas ---
-            L.control.layers(baseMaps).addTo(map);
+            // --- Control de Zoom (abajo a la derecha) ---
+            L.control.zoom({
+                position: 'bottomright'
+            }).addTo(map);
 
-            // --- Control de Búsqueda (Buscador Nominatim) ---
+            // --- Control de Capas (abajo a la izquierda) ---
+            L.control.layers(baseMaps, null, {
+                position: 'bottomleft'
+            }).addTo(map);
+
+            // --- Control de Búsqueda (arriba a la izquierda) ---
             var geocoder = L.Control.geocoder({
                 defaultMarkGeocode: false,
-                position: 'topright',
+                position: 'topleft',
                 placeholder: 'Buscar calles o lugares...',
                 geocoder: L.Control.Geocoder.nominatim({
                     geocodingQueryParams: {
@@ -135,208 +194,175 @@
             var router = L.Routing.osrmv1({
                 serviceUrl: 'https://router.project-osrm.org/route/v1',
                 language: 'es',
-                alternatives: false // <-- Pide rutas alternativas
+                alternatives: false
             });
 
-                    // Ruta 1: CABA -> Rosario -> Córdoba
-        var ruta1 = L.Routing.control({
-            waypoints: [
-                L.latLng(-34.6037, -58.3816), // CABA
-                L.latLng(-31.4201, -64.1888)   // Córdoba
-            ],
-            router: router,
-            showAlternatives: false,
-            fitSelectedRoutes: false, 
-            show: false,
-            addWaypoints: false,
-            draggableWaypoints: false,
-            lineOptions: {
-                styles: [
-                    {color: '#007bff', opacity: 0.8, weight: 6} // Azul
-                ]
-            }
-        }).addTo(map);
-
-        // Ruta 2: CABA -> Rojas -> Córdoba
-        var ruta2 = L.Routing.control({
-            waypoints: [
-                L.latLng(-34.6037, -58.3816), // CABA
-                L.latLng(-34.1980, -60.7339), //lujan
-                L.latLng(-33.1301, -64.3499),// Rojas, punto intermedio
-                L.latLng(-31.4201, -64.1888)   // Córdoba
-            ],
-            router: router,
-            showAlternatives: false,
-            fitSelectedRoutes: false,
-            show: false,
-            addWaypoints: false,
-            draggableWaypoints: false,
-            createMarker: function() { return null; },
-            lineOptions: {
-                styles: [
-                    {color: '#dc3545', opacity: 0.8, weight: 6} // Rojo 
-                ]
-            }
-        }).addTo(map);
-        // Ruta 3: CABA -> gualeguay -> santa fe -> Córdoba
-        var ruta3 = L.Routing.control({
-            waypoints: [
-                L.latLng(-34.6037, -58.3816), // CABA
-                L.latLng(-33.1473, -59.3041),//gualeguay
-                L.latLng(-31.6157, -60.7048), //Sta Fe capital
-                L.latLng(-31.4201, -64.1888)   // Córdoba
-            ],
-            router: router,
-            showAlternatives: false,
-            fitSelectedRoutes: false,
-            show: false,
-            addWaypoints: false,
-            draggableWaypoints: false,
-            createMarker: function() { return null; },
-            lineOptions: {
-                styles: [
-                    {color: '#dc3545', opacity: 0.8, weight: 6} // Rojo
-
-                ]
-            }
-        }).addTo(map);
-                // Variable para controlar visibilidad
-        var rutasVisibles = true;
-
-        // Crear botón para mostrar/ocultar rutas
-        var botonRutas = L.control({position: 'topright'});
-
-        botonRutas.onAdd = function(map) {
-            var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-            div.innerHTML = '<a href="#" title="Mostrar/Ocultar Rutas" style="width: 34px; height: 34px; line-height: 34px; text-align: center; font-size: 18px; text-decoration: none; display: block;">🛣️</a>';
-
-            div.onclick = function(e) {
-                L.DomEvent.stop(e);
-                e.preventDefault();
-                if (rutasVisibles) {
-                    map.removeControl(ruta1);
-                    map.removeControl(ruta2);
-                    map.removeControl(ruta3);
-                    rutasVisibles = false;
-                } else {
-                    ruta1.addTo(map);
-                    ruta2.addTo(map);
-                    ruta3.addTo(map);
-                    rutasVisibles = true;
+            // Ruta 1: CABA -> Córdoba
+            var ruta1 = L.Routing.control({
+                waypoints: [
+                    L.latLng(-34.6037, -58.3816), // CABA
+                    L.latLng(-31.4201, -64.1888)   // Córdoba
+                ],
+                router: router,
+                showAlternatives: false,
+                fitSelectedRoutes: false,
+                show: false,
+                addWaypoints: false,
+                draggableWaypoints: false,
+                lineOptions: {
+                    styles: [
+                        {color: '#007bff', opacity: 0.8, weight: 6}
+                    ]
                 }
+            }).addTo(map);
+
+            // Ruta 2: CABA -> Luján -> Rojas -> Córdoba
+            var ruta2 = L.Routing.control({
+                waypoints: [
+                    L.latLng(-34.6037, -58.3816), // CABA
+                    L.latLng(-34.1980, -60.7339), // Luján
+                    L.latLng(-33.1301, -64.3499), // Rojas
+                    L.latLng(-31.4201, -64.1888)  // Córdoba
+                ],
+                router: router,
+                showAlternatives: false,
+                fitSelectedRoutes: false,
+                show: false,
+                addWaypoints: false,
+                draggableWaypoints: false,
+                createMarker: function() { return null; },
+                lineOptions: {
+                    styles: [
+                        {color: '#dc3545', opacity: 0.8, weight: 6}
+                    ]
+                }
+            }).addTo(map);
+
+            // Ruta 3: CABA -> Gualeguay -> Santa Fe -> Córdoba
+            var ruta3 = L.Routing.control({
+                waypoints: [
+                    L.latLng(-34.6037, -58.3816), // CABA
+                    L.latLng(-33.1473, -59.3041), // Gualeguay
+                    L.latLng(-31.6157, -60.7048), // Sta Fe capital
+                    L.latLng(-31.4201, -64.1888)  // Córdoba
+                ],
+                router: router,
+                showAlternatives: false,
+                fitSelectedRoutes: false,
+                show: false,
+                addWaypoints: false,
+                draggableWaypoints: false,
+                createMarker: function() { return null; },
+                lineOptions: {
+                    styles: [
+                        {color: '#dc3545', opacity: 0.8, weight: 6}
+                    ]
+                }
+            }).addTo(map);
+
+            // ============================================
+            // TRIÁNGULO EQUILÁTERO INVERTIDO
+            // ============================================
+
+            var verticeNorte = [-33.987074573755905, -63.622237592445565];
+            var verticeSurOeste = [-33.987074573755905, -61.4693868116242];
+            var verticeSurEste = [-35.255355059007194, -62.545812202034885];
+
+            var triangulo = L.polygon([
+                verticeNorte,
+                verticeSurEste,
+                verticeSurOeste
+            ], {
+                color: '#003366',
+                fillColor: '#003366',
+                fillOpacity: 0.4,
+                weight: 3
+            }).addTo(map);
+
+            triangulo.bindPopup(`
+                <b>Triángulo Equilátero Invertido</b><br>
+                Zona: Sur Córdoba - Sur Santa Fe - NO Buenos Aires<br>
+                <small>Vértice Norte: ${verticeNorte}</small><br>
+                <small>Vértice SO: ${verticeSurOeste}</small><br>
+                <small>Vértice SE: ${verticeSurEste}</small>
+            `);
+
+            // ============================================
+            // MENÚ DESPLEGABLE (arriba a la derecha)
+            // ============================================
+
+            var rutasVisibles = true;
+            var trianguloVisible = true;
+
+            var menuDesplegable = L.control({position: 'topright'});
+
+            menuDesplegable.onAdd = function(map) {
+                var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control menu-desplegable');
+
+                div.innerHTML = `
+                    <a href="#" class="menu-toggle" title="Menú de opciones">☰</a>
+                    <div class="menu-items">
+                        <button class="menu-item" id="btnRutas">🛣️ Mostrar/Ocultar Rutas</button>
+                        <button class="menu-item" id="btnTriangulo">▲ Mostrar/Ocultar Triángulo</button>
+                    </div>
+                `;
+
+                // Toggle del menú
+                div.querySelector('.menu-toggle').onclick = function(e) {
+                    L.DomEvent.stop(e);
+                    e.preventDefault();
+                    div.classList.toggle('abierto');
+                };
+
+                // Botón de rutas
+                div.querySelector('#btnRutas').onclick = function(e) {
+                    L.DomEvent.stop(e);
+                    if (rutasVisibles) {
+                        map.removeControl(ruta1);
+                        map.removeControl(ruta2);
+                        map.removeControl(ruta3);
+                        rutasVisibles = false;
+                    } else {
+                        ruta1.addTo(map);
+                        ruta2.addTo(map);
+                        ruta3.addTo(map);
+                        rutasVisibles = true;
+                    }
+                };
+
+                // Botón de triángulo
+                div.querySelector('#btnTriangulo').onclick = function(e) {
+                    L.DomEvent.stop(e);
+                    if (trianguloVisible) {
+                        map.removeLayer(triangulo);
+                        trianguloVisible = false;
+                    } else {
+                        triangulo.addTo(map);
+                        trianguloVisible = true;
+                    }
+                };
+
+                return div;
             };
 
-            return div;
-        };
-
-               // ... después de ruta3 y antes del botón de rutas, agregá esto:
-
-        // ============================================
-        // TRIÁNGULO EQUILÁTERO INVERTIDO
-        // ============================================
-
-        // Coordenadas exactas del triángulo invertido
-        // Sur de Córdoba, Sur de Santa Fe, Noroeste de Buenos Aires
-
-        // Vértice superior (norte) - Sur de Córdoba
-        var verticeNorte = [-33.987074573755905, -63.622237592445565];
-
-        // Vértice inferior izquierdo (suroeste) - Sur de Santa Fe
-        var verticeSurOeste = [-33.987074573755905, -61.4693868116242];
-
-        // Vértice inferior derecho (sureste) - Noroeste de Buenos Aires
-        var verticeSurEste = [-35.255355059007194, -62.545812202034885];
-
-        // Crear el polígono
-        var triangulo = L.polygon([
-            verticeNorte,
-            verticeSurEste,
-            verticeSurOeste
-        ], {
-            color: '#003366',      // Azul oscuro para el borde
-            fillColor: '#003366',  // Azul oscuro para el relleno
-            fillOpacity: 0.4,
-            weight: 3
-        }).addTo(map);
-
-        // Agregar popup con información
-        triangulo.bindPopup(`
-            <b>Triángulo Equilátero Invertido</b><br>
-            Zona: Sur Córdoba - Sur Santa Fe - NO Buenos Aires<br>
-            <small>Vértice Norte: ${verticeNorte}</small><br>
-            <small>Vértice SO: ${verticeSurOeste}</small><br>
-            <small>Vértice SE: ${verticeSurEste}</small>
-        `);
-
-        // ============================================
-        // FIN DEL TRIÁNGULO
-        // ============================================
-
-        // Variable para controlar visibilidad
-
-                var trianguloVisible = true;
-
-        // Crear botón para mostrar/ocultar triángulo
-        var botonTriangulo = L.control({position: 'topright'});
-
-        botonTriangulo.onAdd = function(map) {
-            var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-            div.innerHTML = '<a href="#" title="Mostrar/Ocultar Triángulo" style="width: 34px; height: 34px; line-height: 34px; text-align: center; font-size: 18px; text-decoration: none; display: block;">▲</a>';
-
-            div.onclick = function(e) {
-                L.DomEvent.stop(e);
-                e.preventDefault();
-                if (trianguloVisible) {
-                    map.removeLayer(triangulo);
-                    trianguloVisible = false;
-                } else {
-                    triangulo.addTo(map);
-                    trianguloVisible = true;
-                }
-            };
-
-            return div;
-        };
-
-        botonRutas.addTo(map);
-        botonTriangulo.addTo(map);
-
-        var rutasVisibles = true;
-
-        // Ajustar el zoom para ver ambas rutas
-        // map.fitBounds([
-        //     [-34.6037, -58.3816],
-        //     [-31.4201, -64.1888]
-        // ]);
+            menuDesplegable.addTo(map);
 
             // --- Carga del CRUD ---
             cargarMarcadores();
 
-            // Evento de clic en el mapa (para crear)
-            map.on('click', function(e) {
+            // Evento de DOBLE CLIC en el mapa (para crear marcadores)
+            map.on('dblclick', function(e) {
                 abrirPopupParaNuevoMarcador(e.latlng);
             });
         });
 
         // --- FUNCIONES PARA EL CRUD ---
 
-        // ===================================================================
-        // AQUÍ ESTÁ EL CAMBIO
-        // ===================================================================
         function agregarMarcadorAlMapa(marcador) {
-            console.log("Marcador recibido:", marcador); // ← AGREGÁ ESTA LÍNEA
-            // 1. Leemos las coordenadas del objeto 'ubicacion'
-            //    GeoJSON es [Longitud, Latitud]
-            
-
-            // 2. Leaflet espera [Latitud, Longitud], así que damos vuelta el array
+            console.log("Marcador recibido:", marcador);
             const latLng = [marcador.latitud, marcador.longitud];
-
             var pin = L.marker(latLng).addTo(map);
 
-            // 3. Guardamos los datos "aplanados" en el pin.
-            //    Esto es CLAVE para que la función 'guardarEdicion'
-            //    siga funcionando sin cambios.
             pin.markerData = {
                 id: marcador.id,
                 nombre: marcador.nombre,
@@ -351,17 +377,11 @@
                     <button class="btn-editar" onclick="mostrarFormularioEdicion(event, ${marcador.id})">Editar</button>
                     <button class="btn-borrar" onclick="borrarMarcador(event, ${marcador.id})">Borrar</button>
                 </div>
-        `;
+            `;
             pin.bindPopup(popupContent);
             marcadoresEnMapa[marcador.id] = pin;
         }
-        // ===================================================================
-        // FIN DEL CAMBIO
-        // ===================================================================
 
-
-        // LEER (Read): Carga todos los marcadores desde la API
-        // (Esta función NO CAMBIA, porque solo pasa el 'marcador' a la función que SÍ cambiamos)
         async function cargarMarcadores() {
             try {
                 const response = await fetch('/api/marcadores');
@@ -375,8 +395,6 @@
             }
         }
 
-        // CREAR (Create): Muestra el popup para pedir el nombre
-        // (Esta función NO CAMBIA)
         function abrirPopupParaNuevoMarcador(latlng) {
             var lat = latlng.lat.toFixed(6);
             var lng = latlng.lng.toFixed(6);
@@ -396,10 +414,6 @@
                 .openOn(map);
         }
 
-        // CREAR (Create): Guarda el nuevo marcador en la BBDD
-        // (Esta función NO CAMBIA. Ya envía el DTO {nombre, latitud, longitud}
-        // y recibe el objeto 'marcadorGuardado' completo, que pasa
-        // a nuestra nueva función 'agregarMarcadorAlMapa')
         async function guardarMarcador(event, lat, lng) {
             event.stopPropagation();
             const nombre = document.getElementById('inputNombreMarcador').value;
@@ -421,8 +435,6 @@
             }
         }
 
-        // BORRAR (Delete)
-        // (Esta función NO CAMBIA)
         async function borrarMarcador(event, id) {
             event.stopPropagation();
             if (!confirm("¿Seguro que querés borrar este marcador?")) return;
@@ -439,8 +451,6 @@
             }
         }
 
-        // EDITAR (Update) - Paso 1: Mostrar formulario
-        // (Esta función NO CAMBIA)
         function mostrarFormularioEdicion(event, id) {
             event.stopPropagation();
             var pin = marcadoresEnMapa[id];
@@ -459,13 +469,11 @@
             pin.setPopupContent(formContent);
         }
 
-        // EDITAR (Update) - Paso 2: Cancelar
-        // (Esta función NO CAMBIA)
         function cancelarEdicion(event, id) {
             event.stopPropagation();
             var pin = marcadoresEnMapa[id];
             var data = pin.markerData;
-             var popupContent = `
+            var popupContent = `
                 <div id="popup-ver-${data.id}">
                     <b>${data.nombre}</b>
                     <br>
@@ -476,10 +484,6 @@
             pin.setPopupContent(popupContent);
         }
 
-        // EDITAR (Update) - Paso 3: Guardar cambios
-        // (Esta función NO CAMBIA. Gracias a que 'pin.markerData'
-        // ahora se guarda aplanado, sigue teniendo 'latitud' y 'longitud'
-        // para enviar el DTO de actualización correctamente).
         async function guardarEdicion(event, id) {
             event.stopPropagation();
 
@@ -501,7 +505,7 @@
                 });
                 if (!response.ok) throw new Error('Error al actualizar en la API');
 
-                pin.markerData.nombre = nuevoNombre; // Actualizamos el dato local
+                pin.markerData.nombre = nuevoNombre;
 
                 var popupContent = `
                     <div id="popup-ver-${id}">
