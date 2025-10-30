@@ -8,6 +8,8 @@
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
 
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+
 <style>
     /* Estilo del Mapa */
     #mapaIGN {
@@ -54,6 +56,10 @@
         .btn-guardar:hover {
             background-color: #45a049;
         }
+
+    .leaflet-routing-container {
+        display: none;
+    }
 </style>
 
 <h2>Mapa con API del IGN</h2>
@@ -65,7 +71,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
-
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
     <script>
@@ -106,7 +112,7 @@
 
             // --- Control de Búsqueda (Buscador Nominatim) ---
             var geocoder = L.Control.geocoder({
-                defaultMarkGeocode: false, // Lo dejamos en false, lo hacemos manual
+                defaultMarkGeocode: false,
                 position: 'topright',
                 placeholder: 'Buscar calles o lugares...',
                 geocoder: L.Control.Geocoder.nominatim({
@@ -126,6 +132,110 @@
             })
             .addTo(map);
 
+            var router = L.Routing.osrmv1({
+                serviceUrl: 'https://router.project-osrm.org/route/v1',
+                language: 'es',
+                alternatives: false // <-- Pide rutas alternativas
+            });
+
+                    // Ruta 1: CABA -> Rosario -> Córdoba
+        var ruta1 = L.Routing.control({
+            waypoints: [
+                L.latLng(-34.6037, -58.3816), // CABA
+                L.latLng(-31.4201, -64.1888)   // Córdoba
+            ],
+            router: router,
+            showAlternatives: false,
+            fitSelectedRoutes: false, 
+            show: false,
+            addWaypoints: false,
+            draggableWaypoints: false,
+            lineOptions: {
+                styles: [
+                    {color: '#007bff', opacity: 0.8, weight: 6} // Azul
+                ]
+            }
+        }).addTo(map);
+
+        // Ruta 2: CABA -> Rojas -> Córdoba
+        var ruta2 = L.Routing.control({
+            waypoints: [
+                L.latLng(-34.6037, -58.3816), // CABA
+                L.latLng(-34.1980, -60.7339), //lujan
+                L.latLng(-33.1301, -64.3499),// Rojas, punto intermedio
+                L.latLng(-31.4201, -64.1888)   // Córdoba
+            ],
+            router: router,
+            showAlternatives: false,
+            fitSelectedRoutes: false,
+            show: false,
+            addWaypoints: false,
+            draggableWaypoints: false,
+            createMarker: function() { return null; },
+            lineOptions: {
+                styles: [
+                    {color: '#dc3545', opacity: 0.8, weight: 6} // Rojo 
+                ]
+            }
+        }).addTo(map);
+        // Ruta 3: CABA -> gualeguay -> santa fe -> Córdoba
+        var ruta3 = L.Routing.control({
+            waypoints: [
+                L.latLng(-34.6037, -58.3816), // CABA
+                L.latLng(-33.1473, -59.3041),//gualeguay
+                L.latLng(-31.6157, -60.7048), //Sta Fe capital
+                L.latLng(-31.4201, -64.1888)   // Córdoba
+            ],
+            router: router,
+            showAlternatives: false,
+            fitSelectedRoutes: false,
+            show: false,
+            addWaypoints: false,
+            draggableWaypoints: false,
+            createMarker: function() { return null; },
+            lineOptions: {
+                styles: [
+                    {color: '#dc3545', opacity: 0.8, weight: 6} // Rojo
+
+                ]
+            }
+        }).addTo(map);
+                // Variable para controlar visibilidad
+        var rutasVisibles = true;
+
+        // Crear botón para mostrar/ocultar rutas
+        var botonRutas = L.control({position: 'topright'});
+
+        botonRutas.onAdd = function(map) {
+            var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+            div.innerHTML = '<a href="#" title="Mostrar/Ocultar Rutas" style="width: 34px; height: 34px; line-height: 34px; text-align: center; font-size: 18px; text-decoration: none; display: block;">🛣️</a>';
+
+            div.onclick = function(e) {
+                L.DomEvent.stop(e);
+                e.preventDefault();
+                if (rutasVisibles) {
+                    map.removeControl(ruta1);
+                    map.removeControl(ruta2);
+                    map.removeControl(ruta3);
+                    rutasVisibles = false;
+                } else {
+                    ruta1.addTo(map);
+                    ruta2.addTo(map);
+                    ruta3.addTo(map);
+                    rutasVisibles = true;
+                }
+            };
+
+            return div;
+        };
+
+        botonRutas.addTo(map);
+
+        // Ajustar el zoom para ver ambas rutas
+        // map.fitBounds([
+        //     [-34.6037, -58.3816],
+        //     [-31.4201, -64.1888]
+        // ]);
 
             // --- Carga del CRUD ---
             cargarMarcadores();
@@ -145,7 +255,7 @@
             console.log("Marcador recibido:", marcador); // ← AGREGÁ ESTA LÍNEA
             // 1. Leemos las coordenadas del objeto 'ubicacion'
             //    GeoJSON es [Longitud, Latitud]
-            // const coords = marcador.ubicacion.coordinates;
+            
 
             // 2. Leaflet espera [Latitud, Longitud], así que damos vuelta el array
             const latLng = [marcador.latitud, marcador.longitud];
