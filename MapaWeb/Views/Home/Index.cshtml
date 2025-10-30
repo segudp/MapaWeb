@@ -229,7 +229,79 @@
             return div;
         };
 
+               // ... después de ruta3 y antes del botón de rutas, agregá esto:
+
+        // ============================================
+        // TRIÁNGULO EQUILÁTERO INVERTIDO
+        // ============================================
+
+        // Coordenadas exactas del triángulo invertido
+        // Sur de Córdoba, Sur de Santa Fe, Noroeste de Buenos Aires
+
+        // Vértice superior (norte) - Sur de Córdoba
+        var verticeNorte = [-33.987074573755905, -63.622237592445565];
+
+        // Vértice inferior izquierdo (suroeste) - Sur de Santa Fe
+        var verticeSurOeste = [-33.987074573755905, -61.4693868116242];
+
+        // Vértice inferior derecho (sureste) - Noroeste de Buenos Aires
+        var verticeSurEste = [-35.255355059007194, -62.545812202034885];
+
+        // Crear el polígono
+        var triangulo = L.polygon([
+            verticeNorte,
+            verticeSurEste,
+            verticeSurOeste
+        ], {
+            color: '#003366',      // Azul oscuro para el borde
+            fillColor: '#003366',  // Azul oscuro para el relleno
+            fillOpacity: 0.4,
+            weight: 3
+        }).addTo(map);
+
+        // Agregar popup con información
+        triangulo.bindPopup(`
+            <b>Triángulo Equilátero Invertido</b><br>
+            Zona: Sur Córdoba - Sur Santa Fe - NO Buenos Aires<br>
+            <small>Vértice Norte: ${verticeNorte}</small><br>
+            <small>Vértice SO: ${verticeSurOeste}</small><br>
+            <small>Vértice SE: ${verticeSurEste}</small>
+        `);
+
+        // ============================================
+        // FIN DEL TRIÁNGULO
+        // ============================================
+
+        // Variable para controlar visibilidad
+
+                var trianguloVisible = true;
+
+        // Crear botón para mostrar/ocultar triángulo
+        var botonTriangulo = L.control({position: 'topright'});
+
+        botonTriangulo.onAdd = function(map) {
+            var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+            div.innerHTML = '<a href="#" title="Mostrar/Ocultar Triángulo" style="width: 34px; height: 34px; line-height: 34px; text-align: center; font-size: 18px; text-decoration: none; display: block;">▲</a>';
+
+            div.onclick = function(e) {
+                L.DomEvent.stop(e);
+                e.preventDefault();
+                if (trianguloVisible) {
+                    map.removeLayer(triangulo);
+                    trianguloVisible = false;
+                } else {
+                    triangulo.addTo(map);
+                    trianguloVisible = true;
+                }
+            };
+
+            return div;
+        };
+
         botonRutas.addTo(map);
+        botonTriangulo.addTo(map);
+
+        var rutasVisibles = true;
 
         // Ajustar el zoom para ver ambas rutas
         // map.fitBounds([
