@@ -14,12 +14,19 @@ namespace MapaWeb.Controllers
         private readonly AppDbContext _context;
         private readonly GeometryFactory _geometryFactory; // 3. Factory para crear geometrías
 
-        public MarcadoresController(AppDbContext context)
+        public MarcadoresController(AppDbContext context, GeometryFactory factory)
         {
             _context = context;
-            // 4. Inicializar el Factory con SRID 4326 (WGS 84)
-            _geometryFactory = new GeometryFactory(new Point(0, 0).Factory.PrecisionModel, 4326);
+            _geometryFactory = factory; // <-- Lo asignás
+                                        // BORRAMOS LA LÍNEA: _geometryFactory = new GeometryFactory(new Point(0, 0)...);
         }
+
+        //public MarcadoresController(AppDbContext context)
+        //{
+        //    _context = context;
+        //    // 4. Inicializar el Factory con SRID 4326 (WGS 84)
+        //    _geometryFactory = new GeometryFactory(new Point(0, 0).Factory.PrecisionModel, 4326);
+        //}
 
         // ---
         // GET (Todos) - Devuelve los marcadores

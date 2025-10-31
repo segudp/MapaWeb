@@ -53,7 +53,7 @@ namespace MapaWeb.Migrations
 
                     b.Property<Polygon>("Geometria")
                         .IsRequired()
-                        .HasColumnType("geography");
+                        .HasColumnType("geometry");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
