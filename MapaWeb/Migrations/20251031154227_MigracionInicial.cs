@@ -5,8 +5,10 @@ using NetTopologySuite.Geometries;
 
 namespace MapaWeb.Migrations
 {
-    public partial class MapaWeb : Migration
+    /// <inheritdoc />
+    public partial class MigracionInicial : Migration
     {
+        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
@@ -38,6 +40,7 @@ namespace MapaWeb.Migrations
                 });
         }
 
+        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(

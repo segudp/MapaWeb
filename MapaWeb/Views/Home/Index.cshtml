@@ -126,13 +126,18 @@
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script>
-        // Referencias globales del mapa y colecciones.
+        // ===================================================================
+        // 1. VARIABLES GLOBALES
+        // ===================================================================
         var map;
         var marcadoresEnMapa = {}; // Objeto para guardar los 'pins'
         var searchMarker = null;
         var drawnItems = new L.FeatureGroup();
+        let estaCargando = false; // Flag para evitar duplicados
 
-        // Inicializa el mapa cuando el DOM está listo.
+        // ===================================================================
+        // 2. INICIALIZACIÓN DEL MAPA
+        // ===================================================================
         document.addEventListener("DOMContentLoaded", function () {
 
             // Coordenadas y zoom inicial.
@@ -162,7 +167,7 @@
             map = L.map('mapaIGN', {
                 center: [latitud, longitud],
                 zoom: zoom,
-                layers: [argenmap],
+                layers: [argenmap, drawnItems], // <-- AÑADIDO drawnItems ACÁ
                 zoomControl: false
             });
 
@@ -183,10 +188,10 @@
             })
             .on('markgeocode', function(e) {
                 var latlng = e.geocode.center;
-                if (searchMarker) { map.removeLayer(searchMarker); } // quita marcador previo
-                searchMarker = L.marker(latlng).addTo(map); // crea marcador nuevo
+                if (searchMarker) { map.removeLayer(searchMarker); }
+                searchMarker = L.marker(latlng).addTo(map);
                 searchMarker.bindPopup(e.geocode.name).openPopup();
-                map.flyTo(latlng, 16); // centra y hace zoom
+                map.flyTo(latlng, 16);
                 searchMarker.on('popupclose', function() { map.removeLayer(searchMarker); searchMarker = null; });
             })
             .addTo(map);
@@ -194,65 +199,36 @@
             // Router OSRM para rutas.
             var router = L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', language: 'es', alternatives: false });
 
-            // Ruta 1 predefinida.
+            // Rutas predefinidas (1, 2, 3) ...
             var ruta1 = L.Routing.control({
                 waypoints: [ L.latLng(-34.6037, -58.3816), L.latLng(-31.4201, -64.1888) ],
-                router: router,
-                showAlternatives: false,
-                fitSelectedRoutes: false,
-                show: false,
-                addWaypoints: false,
-                draggableWaypoints: false,
+                router: router, showAlternatives: false, fitSelectedRoutes: false, show: false, addWaypoints: false, draggableWaypoints: false,
                 lineOptions: { styles: [{color: '#007bff', opacity: 0.8, weight: 6}] }
             }).addTo(map);
 
-            // Ruta 2 predefinida con tramos intermedios.
             var ruta2 = L.Routing.control({
                 waypoints: [
-                    L.latLng(-34.6037, -58.3816),
-                    L.latLng(-34.5560, -59.1001),
-                    L.latLng(-34.1980, -60.7339),
-                    L.latLng(-33.1301, -64.3499),
-                    L.latLng(-31.4201, -64.1888)
+                    L.latLng(-34.6037, -58.3816), L.latLng(-34.5560, -59.1001), L.latLng(-34.1980, -60.7339),
+                    L.latLng(-33.1301, -64.3499), L.latLng(-31.4201, -64.1888)
                 ],
-                router: router,
-                showAlternatives: false,
-                fitSelectedRoutes: false,
-                show: false,
-                addWaypoints: false,
-                draggableWaypoints: false,
+                router: router, showAlternatives: false, fitSelectedRoutes: false, show: false, addWaypoints: false, draggableWaypoints: false,
                 createMarker: function() { return null; },
                 lineOptions: { styles: [{color: '#dc3545', opacity: 0.8, weight: 6}] }
             }).addTo(map);
 
-            // Ruta 3 predefinida con otros puntos.
-            var ruta3 = L.Routing.control({
+             var ruta3 = L.Routing.control({
                 waypoints: [
-                    L.latLng(-34.6037, -58.3816),
-                    L.latLng(-33.1473, -59.3041),
-                    L.latLng(-31.6157, -60.7048),
+                    L.latLng(-34.6037, -58.3816), L.latLng(-33.1473, -59.3041), L.latLng(-31.6157, -60.7048),
                     L.latLng(-31.4201, -64.1888)
                 ],
-                router: router,
-                showAlternatives: false,
-                fitSelectedRoutes: false,
-                show: false,
-                addWaypoints: false,
-                draggableWaypoints: false,
+                router: router, showAlternatives: false, fitSelectedRoutes: false, show: false, addWaypoints: false, draggableWaypoints: false,
                 createMarker: function() { return null; },
                 lineOptions: { styles: [{color: '#dc3545', opacity: 0.8, weight: 6}] }
             }).addTo(map);
 
 
-            
-
-            
             // MENÚ DESPLEGABLE
- 
-
             var rutasVisibles = true;
-            
-
             var menuDesplegable = L.control({position: 'topright'});
 
             menuDesplegable.onAdd = function(map) {
@@ -269,9 +245,6 @@
                     if (rutasVisibles) { map.removeControl(ruta1); map.removeControl(ruta2); map.removeControl(ruta3); rutasVisibles = false; }
                     else { ruta1.addTo(map); ruta2.addTo(map); ruta3.addTo(map); rutasVisibles = true; }
                 };
-
-                
-
                 return div;
             };
             menuDesplegable.addTo(map);
@@ -284,13 +257,10 @@
             map.on('dblclick', function(e) {
                 abrirPopupParaNuevoMarcador(e.latlng);
             });
-            // ===================================================================
-            // ⬇️ ⬇️ ⬇️ NUEVO BLOQUE PARA DIBUJAR POLÍGONOS ⬇️ ⬇️ ⬇️
-            // ===================================================================
 
-            // 1. Capa para guardar los dibujos
-            
-            map.addLayer(drawnItems);
+            // ===================================================================
+            // 3. CONTROLES DE DIBUJO (LEAFLET.DRAW)
+            // ===================================================================
 
             var drawControl = new L.Control.Draw({
                 position: 'topleft',
@@ -307,78 +277,51 @@
                     marker: false, circlemarker: false
                 },
                 edit: {
-                    featureGroup: drawnItems // <-- ESTO ES CLAVE
+                    featureGroup: drawnItems // <-- CLAVE
                 }
             });
             map.addControl(drawControl);
 
-            // Al crear un polígono pide nombre y guarda.
+            // Evento al CREAR un polígono
             map.on(L.Draw.Event.CREATED, function (event) {
                 var layer = event.layer;
-                drawnItems.removeLayer(layer);
-                // Pedimos el nombre
+                // drawnItems.removeLayer(layer); // No lo agregamos para que no lo duplique
                 var nombre = prompt("Ingresá un nombre para esta zona:");
                 if (!nombre) return;
                 var latLngs = layer.getLatLngs()[0];
                 var coordenadas = latLngs.map(function(p) { return [p.lat, p.lng]; });
-                guardarPoligono(nombre, coordenadas);
+                guardarPoligono(nombre, coordenadas); // Llama a la API
             });
 
+            // Evento al EDITAR polígonos
             map.on(L.Draw.Event.EDITED, function (e) {
                 var layers = e.layers;
                 layers.eachLayer(function (layer) {
-                    // 1. Obtenemos los datos guardados
-                    var data = layer.polygonData;
-
-                    // 2. Obtenemos las nuevas coordenadas
+                    var data = layer.polygonData; // Datos guardados
                     var latLngs = layer.getLatLngs()[0];
-                    var coords = latLngs.map(p => [p.lat, p.lng]);
+                    var coords = latLngs.map(p => [p.lat, p.lng]); // Coordenadas nuevas
 
-                    // 3. Llamamos a la nueva función (ver abajo)
+                    // Llama a la API (pero mantiene el nombre que ya tenía)
                     guardarEdicionPoligono(data.id, data.nombre, coords);
                 });
             });
 
+            // Evento al BORRAR polígonos
             map.on(L.Draw.Event.DELETED, function (e) {
                 var layers = e.layers;
                 layers.eachLayer(function (layer) {
-                    // 1. Obtenemos el ID
-                    var id = layer.polygonData.id;
-
-                    // 2. Llamamos a la nueva función (ver abajo)
-                    borrarPoligono(id);
+                    var id = layer.polygonData.id; // Obtenemos el ID
+                    borrarPoligono(id); // Llama a la API
                 });
             });
-
-            map.on(L.Draw.Event.EDITED, function (e) {
-                var layers = e.layers;
-                layers.eachLayer(function (layer) {
-                    // 1. Obtenemos los datos guardados
-                    var data = layer.polygonData;
-
-                    // 2. Obtenemos las nuevas coordenadas
-                    var latLngs = layer.getLatLngs()[0];
-                    var coords = latLngs.map(p => [p.lat, p.lng]);
-
-                    // 3. Llamamos a la nueva función (ver abajo)
-                    guardarEdicionPoligono(data.id, data.nombre, coords);
-                });
-            });
-
-            map.on(L.Draw.Event.DELETED, function (e) {
-                var layers = e.layers;
-                layers.eachLayer(function (layer) {
-                    // 1. Obtenemos el ID
-                    var id = layer.polygonData.id;
-
-                    // 2. Llamamos a la nueva función (ver abajo)
-                    borrarPoligono(id);
-                });
-            });
-
-
-           
+            // --- FIN Eventos de Dibujo ---
         });
+        // --- FIN DE DOMCONTENTLOADED ---
+
+
+        // ===================================================================
+        // 4. FUNCIONES CRUD MARCADORES
+        // ===================================================================
 
         // Carga marcadores desde la API y los muestra.
         async function cargarMarcadores() {
@@ -392,7 +335,6 @@
 
         // Crea un marker, le asigna datos y le pone popup con acciones.
         function agregarMarcadorAlMapa(marcador) {
-            console.log("Marcador recibido:", marcador);
             const latLng = [marcador.latitud, marcador.longitud];
             var pin = L.marker(latLng).addTo(map);
             pin.markerData = { id: marcador.id, nombre: marcador.nombre, latitud: marcador.latitud, longitud: marcador.longitud };
@@ -487,41 +429,69 @@
             pin.setPopupContent(popupContent);
         }
 
+        // *** ¡FUNCIÓN QUE FALTABA! ***
         // Envía PUT para actualizar el nombre y actualiza el popup local.
         async function guardarEdicion(event, id) {
             event.stopPropagation();
             var pin = marcadoresEnMapa[id];
-            var dataOriginal = pin.markerData;
-            const nuevoNombre = document.getElementById(`inputEditarNombre-${id}`).value;
-            if (!nuevoNombre) { alert('El nombre no puede estar vacío.'); return; }
-            const marcadorActualizado = { id: id, nombre: nuevoNombre, latitud: dataOriginal.latitud, longitud: dataOriginal.longitud };
+            var data = pin.markerData;
+            var nuevoNombre = document.getElementById(`inputEditarNombre-${id}`).value;
+            if (!nuevoNombre) { alert("El nombre no puede estar vacío."); return; }
+
+            // Datos actualizados (solo cambiamos el nombre)
+            var marcadorActualizado = {
+                id: id,
+                nombre: nuevoNombre,
+                latitud: data.latitud,
+                longitud: data.longitud
+            };
+
             try {
-                const response = await fetch(`/api/marcadores/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(marcadorActualizado) });
-                if (!response.ok) throw new Error('Error al actualizar en la API');
+                const response = await fetch(`/api/marcadores/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(marcadorActualizado)
+                });
+
+                if (!response.ok) throw new Error('Error al actualizar el marcador');
+
+                // Si la API guardó, actualizamos los datos locales
                 pin.markerData.nombre = nuevoNombre;
-                var popupContent = `
-                    <div id="popup-ver-${id}">
-                        <b>${nuevoNombre}</b>
-                        <br>
-                        <button class="btn-editar" onclick="mostrarFormularioEdicion(event, ${id})">Editar</button>
-                        <button class="btn-borrar" onclick="borrarMarcador(event, ${id})">Borrar</button>
-                    </div>
-                `;
-                pin.setPopupContent(popupContent);
-            } catch (error) { console.error("Error en guardarEdicion:", error); alert('No se pudieron guardar los cambios.'); }
+
+                // Volvemos a poner el popup original, pero con el nombre nuevo
+                cancelarEdicion(event, id);
+
+            } catch (error) {
+                console.error("Error en guardarEdicion:", error);
+                alert('No se pudo guardar la edición.');
+            }
         }
 
-        // LEER (Read): Carga todos los polígonos desde la API
-                async function cargarPoligonos() {
+
+        // ===================================================================
+        // 5. FUNCIONES CRUD POLÍGONOS (¡LAS QUE SE ROMPIERON!)
+        // ===================================================================
+
+        /**
+         * Carga TODOS los polígonos desde la API.
+         * Limpia la capa 'drawnItems' y los vuelve a dibujar.
+         * Esta es la ÚNICA función que dibuja polígonos.
+         */
+        async function cargarPoligonos() {
+            if (estaCargando) {
+                console.warn("Carga de polígonos ya en progreso, frenando.");
+                return;
+            }
+            estaCargando = true;
+
             try {
-                // --- ¡CAMBIO CRÍTICO! ---
-                // 1. Limpiamos TODAS las capas antes de cargar las nuevas.
-                //    Esto evita duplicados.
-                drawnItems.clearLayers();
+                drawnItems.clearLayers(); // <-- ¡CLAVE! Limpia antes de cargar
 
                 const response = await fetch('/api/poligonos');
                 if (!response.ok) throw new Error('Error al cargar polígonos');
+
                 const poligonos = await response.json();
+
                 poligonos.forEach(function(poligono) {
                     // Damos vuelta [lon, lat] a [lat, lon]
                     var coordenadasLeaflet = poligono.geometria.coordinates[0].map(function(p) {
@@ -533,41 +503,112 @@
                     // a. Guardamos los datos en la capa
                     polyLayer.polygonData = poligono;
 
-                    // b. Le ponemos el popup
-                    polyLayer.bindPopup(`<b>${poligono.nombre}</b>`);
+                    // b. Creamos el popup interactivo
+                    const popupContent = `
+                        <div>
+                            <strong>Editar Polígono</strong>
+                            <br>
+                            <label for="input-nombre-${poligono.id}">Nombre:</label>
+                            <input type="text"
+                                   id="input-nombre-${poligono.id}"
+                                   value="${poligono.nombre}"
+                                   style="width: 150px; margin-top: 5px;">
+                            <br>
+                            <button onclick="handleUpdateNombre(${poligono.id})"
+                                    class="btn-guardar" style="margin-right: 5px;">
+                                Guardar
+                            </button>
+                            <button onclick="handleDelete(${poligono.id})"
+                                    class="btn-borrar">
+                                Borrar
+                            </button>
+                        </div>
+                    `;
+                    polyLayer.bindPopup(popupContent);
 
                     // c. Lo agregamos a la capa "drawnItems"
                     drawnItems.addLayer(polyLayer);
                 });
-            } catch (error) { console.error("Error en cargarPoligonos:", error); }
-        }
 
             } catch (error) {
                 console.error("Error en cargarPoligonos:", error);
+            } finally {
+                estaCargando = false; // Liberamos la bandera
             }
         }
 
+        /**
+         * (Helper) Se llama desde el botón "Guardar" del popup del polígono.
+         */
+        async function handleUpdateNombre(id) {
+            const inputId = `input-nombre-${id}`;
+            const nuevoNombre = document.getElementById(inputId).value;
+
+            if (!nuevoNombre || nuevoNombre.trim() === "") {
+                alert("El nombre no puede estar vacío.");
+                return;
+            }
+
+            // Encontrar la capa para sacar sus coordenadas
+            let layerAEditar = null;
+            drawnItems.eachLayer(layer => {
+                if (layer.polygonData && layer.polygonData.id === id) {
+                    layerAEditar = layer;
+                }
+            });
+
+            if (!layerAEditar) {
+                console.error("No se encontró la capa para editar.");
+                return;
+            }
+
+            // Obtenemos las coordenadas (pueden haber sido movidas por L.Draw.Event.EDITED)
+            const coordenadas = layerAEditar.getLatLngs()[0].map(p => [p.lat, p.lng]);
+
+            // Llamamos a la función de la API
+            await guardarEdicionPoligono(id, nuevoNombre, coordenadas);
+
+            layerAEditar.closePopup();
+        }
+
+        /**
+         * (Helper) Se llama desde el botón "Borrar" del popup del polígono.
+         */
+        async function handleDelete(id) {
+            if (confirm('¿Estás seguro que querés borrar este polígono?')) {
+                await borrarPoligono(id);
+            }
+        }
+
+        /**
+         * (API) Guarda un polígono NUEVO (llamado desde L.Draw.Event.CREATED)
+         */
         async function guardarPoligono(nombre, coordenadas) {
-            const nuevoPoligono = { nombre: nombre, coordenadas: coordenadas };
+            const nuevoPoligono = {
+                nombre: nombre,
+                coordenadas: coordenadas // [[lat, lng], [lat, lng], ...]
+            };
+
             try {
-                const response = await fetch('/api/poligonos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nuevoPoligono) });
+                const response = await fetch('/api/poligonos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(nuevoPoligono)
+                });
+
                 if (!response.ok) throw new Error('Error al guardar el polígono');
 
-                // const poligonoGuardado = await response.json(); // No lo usamos por ahora
-
-                // --- ¡CAMBIO IMPORTANTE! ---
-                // 2. En lugar de recargar TODA la página, solo recargamos los polígonos.
-                //    Esto es más rápido y soluciona el problema de duplicados.
-                await cargarPoligonos();
-
+                await cargarPoligonos(); // Recargamos todo
             } catch (error) {
                 console.error("Error en guardarPoligono:", error);
                 alert('No se pudo guardar el polígono.');
             }
         }
 
+        /**
+         * (API) Actualiza un polígono EXISTENTE (nombre o coordenadas)
+         */
         async function guardarEdicionPoligono(id, nombre, coordenadas) {
-
             const poligonoActualizado = {
                 nombre: nombre,
                 coordenadas: coordenadas
@@ -580,87 +621,32 @@
                     body: JSON.stringify(poligonoActualizado)
                 });
 
-                if (!response.ok) {
-                    throw new Error('Error al actualizar en la API');
-                }
+                if (!response.ok) throw new Error('Error al actualizar en la API');
 
-                // --- ¡CAMBIO IMPORTANTE! ---
-                // 3. Refrescamos el mapa para que muestre la edición guardada.
-                await cargarPoligonos();
-
+                await cargarPoligonos(); // Recargamos todo
             } catch (error) {
                 console.error("Error en guardarEdicionPoligono:", error);
                 alert('No se pudieron guardar los cambios.');
             }
         }
 
+        /**
+         * (API) Borra un polígono EXISTENTE
+         */
         async function borrarPoligono(id) {
             try {
                 const response = await fetch(`/api/poligonos/${id}`, {
                     method: 'DELETE'
                 });
 
-                // const poligonoGuardado = await response.json(); // No lo usamos por ahora
+                if (!response.ok) throw new Error('Error al borrar el polígono');
 
-                // --- ¡CAMBIO IMPORTANTE! ---
-                // 2. En lugar de recargar TODA la página, solo recargamos los polígonos.
-                //    Esto es más rápido y soluciona el problema de duplicados.
-                await cargarPoligonos();
-
+                await cargarPoligonos(); // Recargamos todo
             } catch (error) {
                 console.error("Error en borrarPoligono:", error);
                 alert('No se pudo borrar el polígono.');
             }
         }
 
-        async function guardarEdicionPoligono(id, nombre, coordenadas) {
-
-            const poligonoActualizado = {
-                nombre: nombre,
-                coordenadas: coordenadas
-            };
-
-            try {
-                const response = await fetch(`/api/poligonos/${id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(poligonoActualizado)
-                });
-
-                if (!response.ok) {
-                    throw new Error('Error al actualizar en la API');
-                }
-
-                // --- ¡CAMBIO IMPORTANTE! ---
-                // 3. Refrescamos el mapa para que muestre la edición guardada.
-                await cargarPoligonos();
-
-            } catch (error) {
-                console.error("Error en guardarEdicionPoligono:", error);
-                alert('No se pudieron guardar los cambios.');
-            }
-        }
-
-        async function borrarPoligono(id) {
-            try {
-                const response = await fetch(`/api/poligonos/${id}`, {
-                    method: 'DELETE'
-                });
-
-                if (!response.ok) {
-                    throw new Error('Error al borrar el polígono');
-                }
-
-                // --- ¡CAMBIO IMPORTANTE! ---
-                // 4. Refrescamos el mapa. `cargarPoligonos` limpiará
-                //    y volverá a dibujar todo EXCEPTO el que acabamos de borrar.
-                //    (La línea 'delete poligonosEnMapa[id]' ya no es necesaria aquí)
-                await cargarPoligonos();
-
-            } catch (error) {
-                console.error("Error en borrarPoligono:", error);
-                alert('No se pudo borrar el polígono.');
-            }
-        }
     </script>
 }
