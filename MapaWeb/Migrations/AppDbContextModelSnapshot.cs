@@ -40,7 +40,28 @@ namespace MapaWeb.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Marcadores", (string)null);
+                    b.ToTable("Marcadores");
+                });
+
+            modelBuilder.Entity("Poligono", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<Polygon>("Geometria")
+                        .IsRequired()
+                        .HasColumnType("geography");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Poligonos");
                 });
 #pragma warning restore 612, 618
         }

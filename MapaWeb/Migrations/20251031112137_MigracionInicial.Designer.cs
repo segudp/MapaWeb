@@ -5,14 +5,15 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using NetTopologySuite.Geometries;
 
 #nullable disable
 
 namespace MapaWeb.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251027115555_add-migration pa1")]
-    partial class addmigrationpa1
+    [Migration("20251031112137_MigracionInicial")]
+    partial class MigracionInicial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -32,11 +33,30 @@ namespace MapaWeb.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<double>("Latitud")
-                        .HasColumnType("float");
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
-                    b.Property<double>("Longitud")
-                        .HasColumnType("float");
+                    b.Property<Point>("Ubicacion")
+                        .IsRequired()
+                        .HasColumnType("geography");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Marcadores");
+                });
+
+            modelBuilder.Entity("Poligono", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<Polygon>("Geometria")
+                        .IsRequired()
+                        .HasColumnType("geography");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
@@ -44,7 +64,7 @@ namespace MapaWeb.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Marcadores");
+                    b.ToTable("Poligonos");
                 });
 #pragma warning restore 612, 618
         }

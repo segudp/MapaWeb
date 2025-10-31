@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
-
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
 <style>
     /* Estilo del Mapa */
     #mapaIGN {
@@ -17,9 +17,9 @@
         width: 100%;
     }
 
-    /* Estilo para que el buscador se vea bien */
+    /* Estilo buscador */
     .leaflet-control-geocoder {
-        z-index: 1000; /* Asegura que se vea arriba de todo */
+        z-index: 1000; 
     }
 
     /* Estilos para los botones del CRUD */
@@ -34,7 +34,7 @@
     }
 
     .btn-borrar {
-        background-color: #f44336; /* Rojo */
+        background-color: #f44336; 
     }
 
         .btn-borrar:hover {
@@ -42,7 +42,7 @@
         }
 
     .btn-editar {
-        background-color: #007bff; /* Azul */
+        background-color: #007bff; 
     }
 
         .btn-editar:hover {
@@ -50,7 +50,7 @@
         }
 
     .btn-guardar {
-        background-color: #4CAF50; /* Verde */
+        background-color: #4CAF50; 
     }
 
         .btn-guardar:hover {
@@ -114,7 +114,7 @@
 </style>
 
 <h2>Mapa con API del IGN</h2>
-<p>Haz <strong>doble clic</strong> en el mapa para agregar un nuevo marcador o usa el buscador.</p>
+<p>Haz <strong>doble clic</strong> en el mapa para agregar un nuevo marcador</p>
 
 <div id="mapaIGN"></div>
 
@@ -124,7 +124,7 @@
             crossorigin=""></script>
     <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script>
         var map;
         var marcadoresEnMapa = {}; // Objeto para guardar los 'pins'
@@ -188,6 +188,10 @@
                 searchMarker = L.marker(latlng).addTo(map);
                 searchMarker.bindPopup(e.geocode.name).openPopup();
                 map.flyTo(latlng, 16);
+                searchMarker.on('popupclose', function() {
+                    map.removeLayer(searchMarker); // Borra el pin del mapa
+                    searchMarker = null; // Limpia la variable
+                });
             })
             .addTo(map);
 
@@ -216,12 +220,13 @@
                 }
             }).addTo(map);
 
-            // Ruta 2: CABA -> Luján -> Rojas -> Córdoba
+            // Ruta 2: CABA -> Luján -> Rojas -> Rio Negro -> Córdoba
             var ruta2 = L.Routing.control({
                 waypoints: [
                     L.latLng(-34.6037, -58.3816), // CABA
-                    L.latLng(-34.1980, -60.7339), // Luján
-                    L.latLng(-33.1301, -64.3499), // Rojas
+                    L.latLng(-34.5560, -59.1001), // Lujan
+                    L.latLng(-34.1980, -60.7339), // Rojas
+                    L.latLng(-33.1301, -64.3499), // Rio Negro
                     L.latLng(-31.4201, -64.1888)  // Córdoba
                 ],
                 router: router,
@@ -260,9 +265,9 @@
                 }
             }).addTo(map);
 
-            // ============================================
-            // TRIÁNGULO EQUILÁTERO INVERTIDO
-            // ============================================
+
+            // TRIÁNGULO
+
 
             var verticeNorte = [-33.987074573755905, -63.622237592445565];
             var verticeSurOeste = [-33.987074573755905, -61.4693868116242];
@@ -287,9 +292,9 @@
                 <small>Vértice SE: ${verticeSurEste}</small>
             `);
 
-            // ============================================
-            // MENÚ DESPLEGABLE (arriba a la derecha)
-            // ============================================
+            
+            // MENÚ DESPLEGABLE
+ 
 
             var rutasVisibles = true;
             var trianguloVisible = true;
@@ -349,14 +354,78 @@
 
             // --- Carga del CRUD ---
             cargarMarcadores();
+            cargarPoligonos();
 
             // Evento de DOBLE CLIC en el mapa (para crear marcadores)
             map.on('dblclick', function(e) {
                 abrirPopupParaNuevoMarcador(e.latlng);
             });
+            // ===================================================================
+            // ⬇️ ⬇️ ⬇️ NUEVO BLOQUE PARA DIBUJAR POLÍGONOS ⬇️ ⬇️ ⬇️
+            // ===================================================================
+
+            // 1. Capa para guardar los dibujos
+            var drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+
+            // 2. Configuración del Toolbar de Dibujo
+            var drawControl = new L.Control.Draw({
+                position: 'topleft',
+                draw: {
+                    polygon: {
+                        shapeOptions: { color: '#f06' }, // Color fucsia
+                        allowIntersection: false,
+                        drawError: {
+                            color: '#e1e100',
+                            message: '<strong>Error:</strong> No podés cruzar las líneas!'
+                        },
+                    },
+                    // Desactivamos las otras herramientas
+                    polyline: false,
+                    rectangle: false,
+                    circle: false,
+                    marker: false,
+                    circlemarker: false
+                },
+                edit: {
+                    featureGroup: drawnItems // (Dejamos esto para un futuro "Editar")
+                }
+            });
+            map.addControl(drawControl);
+
+            // 3. Evento CUANDO SE CREA UN DIBUJO
+            map.on(L.Draw.Event.CREATED, function (event) {
+                var layer = event.layer;
+
+                // Pedimos el nombre
+                var nombre = prompt("Ingresá un nombre para esta zona:");
+                if (!nombre) return; // Si cancela, no hacemos nada
+
+                // Obtenemos las coordenadas
+                var latLngs = layer.getLatLngs()[0]; // [[lat, lng], [lat, lng], ...]
+
+                // Las convertimos a un array simple
+                var coordenadas = latLngs.map(function(p) {
+                    return [p.lat, p.lng];
+                });
+
+                // 4. Llamamos a la función para guardar en la BBDD
+                guardarPoligono(nombre, coordenadas);
+
+                // (Opcional: agregamos el polígono al mapa visualmente)
+                // (Lo comentamos para que se cargue desde la BBDD)
+                // drawnItems.addLayer(layer);
+            });
+
+
+            // --- Carga del CRUD (TU CÓDIGO) ---
+            cargarMarcadores();
+            cargarPoligonos(); // <-- NUEVA FUNCIÓN (ver abajo)
         });
 
         // --- FUNCIONES PARA EL CRUD ---
+
+        
 
         function agregarMarcadorAlMapa(marcador) {
             console.log("Marcador recibido:", marcador);
@@ -522,6 +591,60 @@
                 alert('No se pudieron guardar los cambios.');
             }
         }
+        // ===================================================================
+        // ⬇️ ⬇️ ⬇️ NUEVAS FUNCIONES PARA POLÍGONOS ⬇️ ⬇️ ⬇️
+        // ===================================================================
 
+        // LEER (Read): Carga todos los polígonos desde la API
+        async function cargarPoligonos() {
+            try {
+                const response = await fetch('/api/poligonos');
+                if (!response.ok) throw new Error('Error al cargar polígonos');
+
+                const poligonos = await response.json();
+
+                poligonos.forEach(function(poligono) {
+                    // La API nos devuelve GeoJSON (que es [lon, lat])
+                    // Leaflet necesita (lat, lng), así que damos vuelta las coordenadas
+                    var coordenadasLeaflet = poligono.geometria.coordinates[0].map(function(p) {
+                        return [p[1], p[0]]; // Invertimos (lon, lat) a (lat, lon)
+                    });
+
+                    var polyLayer = L.polygon(coordenadasLeaflet, { color: '#f06' })
+                        .bindPopup(`<b>${poligono.nombre}</b>`) // (Acá iría el CRUD de polígonos)
+                        .addTo(map);
+                });
+
+            } catch (error) {
+                console.error("Error en cargarPoligonos:", error);
+            }
+        }
+        async function guardarPoligono(nombre, coordenadas) {
+
+            const nuevoPoligono = {
+                nombre: nombre,
+                coordenadas: coordenadas // [[lat, lng], [lat, lng], ...]
+            };
+
+            try {
+                const response = await fetch('/api/poligonos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(nuevoPoligono)
+                });
+
+                if (!response.ok) throw new Error('Error al guardar el polígono');
+
+                const poligonoGuardado = await response.json();
+
+                // Recargamos todos los polígonos para mostrar el nuevo
+                // (Una versión simple, idealmente solo agregaríamos el nuevo)
+                window.location.reload(); // Recarga la página
+
+            } catch (error) {
+                console.error("Error en guardarPoligono:", error);
+                alert('No se pudo guardar el polígono.');
+            }
+        }
     </script>
 }

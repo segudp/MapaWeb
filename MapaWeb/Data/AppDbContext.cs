@@ -12,8 +12,9 @@ namespace MapaWeb.Data
         }
 
         public DbSet<Marcador> Marcadores { get; set; }
+        public DbSet<Poligono> Poligonos { get; set; }
 
-    
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
