@@ -22,7 +22,6 @@ namespace MapaWeb.Data
                 .Property(m => m.Ubicacion)
                 .HasColumnType("geography");
 
-            // Configurar Poligono como geography
             modelBuilder.Entity<Poligono>()
                 .Property(p => p.Geometria)
                 .HasColumnType("geography");

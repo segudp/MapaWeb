@@ -17,13 +17,11 @@ public class PoligonosController : ControllerBase
         _factory = new GeometryFactory(new PrecisionModel(), 4326);
     }
 
-    // GET: /api/poligonos
     [HttpGet]
     public async Task<ActionResult<IEnumerable<object>>> GetPoligonos()
     {
         var poligonos = await _context.Poligonos.ToListAsync();
 
-        // Convertimos a un formato que Leaflet entienda
         var resultado = poligonos.Select(p => new
         {
             id = p.Id,
@@ -39,29 +37,22 @@ public class PoligonosController : ControllerBase
     {
         try
         {
-            // 1. Convertimos las coordenadas
-            // El JS manda [[lat, lng], [lat, lng]]
-            // NetTopologySuite usa (X, Y) -> (Lon, Lat)
             var coordenadas = new List<Coordinate>();
             foreach (var p in dto.Coordenadas)
             {
-                // p[0] es lat, p[1] es lng
                 coordenadas.Add(new Coordinate(p[1], p[0]));
             }
 
-            // 2. Cerramos el polígono (el primer y último punto deben ser iguales)
             if (coordenadas.Count > 0 && !coordenadas[0].Equals(coordenadas[coordenadas.Count - 1]))
             {
                 coordenadas.Add(coordenadas[0]);
             }
 
-            // 3. Verificamos que sea un polígono válido (mínimo 4 puntos: A, B, C, A)
             if (coordenadas.Count < 4)
             {
                 return BadRequest(new { message = "Un polígono necesita al menos 3 puntos." });
             }
 
-            // 4. Creamos la geometría
             var shell = _factory.CreateLinearRing(coordenadas.ToArray());
             var poligonoDb = _factory.CreatePolygon(shell);
 
@@ -71,11 +62,9 @@ public class PoligonosController : ControllerBase
                 Geometria = poligonoDb
             };
 
-            // 5. Guardamos en la BBDD
             _context.Poligonos.Add(nuevoPoligono);
             await _context.SaveChangesAsync();
 
-            // 6. Devolvemos en formato compatible con Leaflet
             var resultado = new
             {
                 id = nuevoPoligono.Id,
@@ -91,7 +80,6 @@ public class PoligonosController : ControllerBase
         }
     }
 
-    // DELETE: /api/poligonos/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeletePoligono(int id)
     {
