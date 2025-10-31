@@ -129,6 +129,7 @@
         var map;
         var marcadoresEnMapa = {}; // Objeto para guardar los 'pins'
         var searchMarker = null;
+        var drawnItems = new L.FeatureGroup();
 
         document.addEventListener("DOMContentLoaded", function () {
 
@@ -266,38 +267,14 @@
             }).addTo(map);
 
 
-            // TRIÁNGULO
-
-
-            var verticeNorte = [-33.987074573755905, -63.622237592445565];
-            var verticeSurOeste = [-33.987074573755905, -61.4693868116242];
-            var verticeSurEste = [-35.255355059007194, -62.545812202034885];
-
-            var triangulo = L.polygon([
-                verticeNorte,
-                verticeSurEste,
-                verticeSurOeste
-            ], {
-                color: '#003366',
-                fillColor: '#003366',
-                fillOpacity: 0.4,
-                weight: 3
-            }).addTo(map);
-
-            triangulo.bindPopup(`
-                <b>Triángulo Equilátero Invertido</b><br>
-                Zona: Sur Córdoba - Sur Santa Fe - NO Buenos Aires<br>
-                <small>Vértice Norte: ${verticeNorte}</small><br>
-                <small>Vértice SO: ${verticeSurOeste}</small><br>
-                <small>Vértice SE: ${verticeSurEste}</small>
-            `);
+            
 
             
             // MENÚ DESPLEGABLE
  
 
             var rutasVisibles = true;
-            var trianguloVisible = true;
+            
 
             var menuDesplegable = L.control({position: 'topright'});
 
@@ -308,7 +285,6 @@
                     <a href="#" class="menu-toggle" title="Menú de opciones">☰</a>
                     <div class="menu-items">
                         <button class="menu-item" id="btnRutas">🛣️ Mostrar/Ocultar Rutas</button>
-                        <button class="menu-item" id="btnTriangulo">▲ Mostrar/Ocultar Triángulo</button>
                     </div>
                 `;
 
@@ -335,17 +311,7 @@
                     }
                 };
 
-                // Botón de triángulo
-                div.querySelector('#btnTriangulo').onclick = function(e) {
-                    L.DomEvent.stop(e);
-                    if (trianguloVisible) {
-                        map.removeLayer(triangulo);
-                        trianguloVisible = false;
-                    } else {
-                        triangulo.addTo(map);
-                        trianguloVisible = true;
-                    }
-                };
+                
 
                 return div;
             };
@@ -365,7 +331,7 @@
             // ===================================================================
 
             // 1. Capa para guardar los dibujos
-            var drawnItems = new L.FeatureGroup();
+            
             map.addLayer(drawnItems);
 
             // 2. Configuración del Toolbar de Dibujo
@@ -373,22 +339,18 @@
                 position: 'topleft',
                 draw: {
                     polygon: {
-                        shapeOptions: { color: '#f06' }, // Color fucsia
+                        shapeOptions: { color: '#f06' },
                         allowIntersection: false,
                         drawError: {
                             color: '#e1e100',
                             message: '<strong>Error:</strong> No podés cruzar las líneas!'
                         },
                     },
-                    // Desactivamos las otras herramientas
-                    polyline: false,
-                    rectangle: false,
-                    circle: false,
-                    marker: false,
-                    circlemarker: false
+                    polyline: false, rectangle: false, circle: false,
+                    marker: false, circlemarker: false
                 },
                 edit: {
-                    featureGroup: drawnItems // (Dejamos esto para un futuro "Editar")
+                    featureGroup: drawnItems // <-- ESTO ES CLAVE
                 }
             });
             map.addControl(drawControl);
@@ -396,7 +358,7 @@
             // 3. Evento CUANDO SE CREA UN DIBUJO
             map.on(L.Draw.Event.CREATED, function (event) {
                 var layer = event.layer;
-
+                drawnItems.removeLayer(layer);
                 // Pedimos el nombre
                 var nombre = prompt("Ingresá un nombre para esta zona:");
                 if (!nombre) return; // Si cancela, no hacemos nada
@@ -417,10 +379,34 @@
                 // drawnItems.addLayer(layer);
             });
 
+            map.on(L.Draw.Event.EDITED, function (e) {
+                var layers = e.layers;
+                layers.eachLayer(function (layer) {
+                    // 1. Obtenemos los datos guardados
+                    var data = layer.polygonData;
 
-            // --- Carga del CRUD (TU CÓDIGO) ---
-            cargarMarcadores();
-            cargarPoligonos(); // <-- NUEVA FUNCIÓN (ver abajo)
+                    // 2. Obtenemos las nuevas coordenadas
+                    var latLngs = layer.getLatLngs()[0];
+                    var coords = latLngs.map(p => [p.lat, p.lng]);
+
+                    // 3. Llamamos a la nueva función (ver abajo)
+                    guardarEdicionPoligono(data.id, data.nombre, coords);
+                });
+            });
+
+            map.on(L.Draw.Event.DELETED, function (e) {
+                var layers = e.layers;
+                layers.eachLayer(function (layer) {
+                    // 1. Obtenemos el ID
+                    var id = layer.polygonData.id;
+
+                    // 2. Llamamos a la nueva función (ver abajo)
+                    borrarPoligono(id);
+                });
+            });
+
+
+           
         });
 
         // --- FUNCIONES PARA EL CRUD ---
@@ -596,29 +582,41 @@
         // ===================================================================
 
         // LEER (Read): Carga todos los polígonos desde la API
-        async function cargarPoligonos() {
+                async function cargarPoligonos() {
             try {
+                // --- ¡CAMBIO CRÍTICO! ---
+                // 1. Limpiamos TODAS las capas antes de cargar las nuevas.
+                //    Esto evita duplicados.
+                drawnItems.clearLayers();
+
                 const response = await fetch('/api/poligonos');
                 if (!response.ok) throw new Error('Error al cargar polígonos');
 
                 const poligonos = await response.json();
 
                 poligonos.forEach(function(poligono) {
-                    // La API nos devuelve GeoJSON (que es [lon, lat])
-                    // Leaflet necesita (lat, lng), así que damos vuelta las coordenadas
+                    // Damos vuelta [lon, lat] a [lat, lon]
                     var coordenadasLeaflet = poligono.geometria.coordinates[0].map(function(p) {
-                        return [p[1], p[0]]; // Invertimos (lon, lat) a (lat, lon)
+                        return [p[1], p[0]];
                     });
 
-                    var polyLayer = L.polygon(coordenadasLeaflet, { color: '#f06' })
-                        .bindPopup(`<b>${poligono.nombre}</b>`) // (Acá iría el CRUD de polígonos)
-                        .addTo(map);
+                    var polyLayer = L.polygon(coordenadasLeaflet, { color: '#f06' });
+
+                    // a. Guardamos los datos en la capa
+                    polyLayer.polygonData = poligono;
+
+                    // b. Le ponemos el popup
+                    polyLayer.bindPopup(`<b>${poligono.nombre}</b>`);
+
+                    // c. Lo agregamos a la capa "drawnItems"
+                    drawnItems.addLayer(polyLayer);
                 });
 
             } catch (error) {
                 console.error("Error en cargarPoligonos:", error);
             }
         }
+
         async function guardarPoligono(nombre, coordenadas) {
 
             const nuevoPoligono = {
@@ -635,15 +633,66 @@
 
                 if (!response.ok) throw new Error('Error al guardar el polígono');
 
-                const poligonoGuardado = await response.json();
+                // const poligonoGuardado = await response.json(); // No lo usamos por ahora
 
-                // Recargamos todos los polígonos para mostrar el nuevo
-                // (Una versión simple, idealmente solo agregaríamos el nuevo)
-                window.location.reload(); // Recarga la página
+                // --- ¡CAMBIO IMPORTANTE! ---
+                // 2. En lugar de recargar TODA la página, solo recargamos los polígonos.
+                //    Esto es más rápido y soluciona el problema de duplicados.
+                await cargarPoligonos();
 
             } catch (error) {
                 console.error("Error en guardarPoligono:", error);
                 alert('No se pudo guardar el polígono.');
+            }
+        }
+
+        async function guardarEdicionPoligono(id, nombre, coordenadas) {
+
+            const poligonoActualizado = {
+                nombre: nombre,
+                coordenadas: coordenadas
+            };
+
+            try {
+                const response = await fetch(`/api/poligonos/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(poligonoActualizado)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Error al actualizar en la API');
+                }
+
+                // --- ¡CAMBIO IMPORTANTE! ---
+                // 3. Refrescamos el mapa para que muestre la edición guardada.
+                await cargarPoligonos();
+
+            } catch (error) {
+                console.error("Error en guardarEdicionPoligono:", error);
+                alert('No se pudieron guardar los cambios.');
+            }
+        }
+
+        async function borrarPoligono(id) {
+            try {
+                const response = await fetch(`/api/poligonos/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Error al borrar el polígono');
+                }
+
+                // --- ¡CAMBIO IMPORTANTE! ---
+                // 4. Refrescamos el mapa. `cargarPoligonos` limpiará
+                //    y volverá a dibujar todo EXCEPTO el que acabamos de borrar.
+                //    (La línea 'delete poligonosEnMapa[id]' ya no es necesaria aquí)
+                await cargarPoligonos();
+
+            } catch (error) {
+                console.error("Error en borrarPoligono:", error);
+                alert('No se pudo borrar el polígono.');
             }
         }
     </script>

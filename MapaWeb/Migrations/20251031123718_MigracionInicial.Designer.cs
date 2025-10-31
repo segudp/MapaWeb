@@ -12,7 +12,7 @@ using NetTopologySuite.Geometries;
 namespace MapaWeb.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251031112137_MigracionInicial")]
+    [Migration("20251031123718_MigracionInicial")]
     partial class MigracionInicial
     {
         /// <inheritdoc />
@@ -56,7 +56,7 @@ namespace MapaWeb.Migrations
 
                     b.Property<Polygon>("Geometria")
                         .IsRequired()
-                        .HasColumnType("geography");
+                        .HasColumnType("geometry");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
