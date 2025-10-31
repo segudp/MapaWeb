@@ -12,19 +12,13 @@ using NetTopologySuite.Geometries;
 namespace MapaWeb.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-<<<<<<< HEAD
 <<<<<<<< HEAD:MapaWeb/Migrations/20251031123718_MigracionInicial.Designer.cs
 ========
-=======
->>>>>>> bf58317f9111719693eb87794629ca9af9b32940
 <<<<<<<< HEAD:MapaWeb/Migrations/20251031112912_MapaWeb.Designer.cs
     [Migration("20251031112912_MapaWeb")]
     partial class MapaWeb
 ========
-<<<<<<< HEAD
 >>>>>>>> bf58317f9111719693eb87794629ca9af9b32940:MapaWeb/Migrations/20251031112912_MapaWeb.Designer.cs
-=======
->>>>>>> bf58317f9111719693eb87794629ca9af9b32940
     [Migration("20251031123718_MigracionInicial")]
     partial class MigracionInicial
 >>>>>>>> 82f565b (sistema de poligonos funcando de 10):MapaWeb/Migrations/20251031123718_MigracionInicial.Designer.cs
