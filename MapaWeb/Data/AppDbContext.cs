@@ -14,13 +14,17 @@ namespace MapaWeb.Data
         public DbSet<Marcador> Marcadores { get; set; }
         public DbSet<Poligono> Poligonos { get; set; }
 
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.Entity<Marcador>()
                 .Property(m => m.Ubicacion)
+                .HasColumnType("geography");
+
+            // Configurar Poligono como geography
+            modelBuilder.Entity<Poligono>()
+                .Property(p => p.Geometria)
                 .HasColumnType("geography");
         }
     }

@@ -19,7 +19,7 @@
 
     /* Estilo buscador */
     .leaflet-control-geocoder {
-        z-index: 1000; 
+        z-index: 1000;
     }
 
     /* Estilos para los botones del CRUD */
@@ -34,7 +34,7 @@
     }
 
     .btn-borrar {
-        background-color: #f44336; 
+        background-color: #f44336;
     }
 
         .btn-borrar:hover {
@@ -42,7 +42,7 @@
         }
 
     .btn-editar {
-        background-color: #007bff; 
+        background-color: #007bff;
     }
 
         .btn-editar:hover {
@@ -50,7 +50,7 @@
         }
 
     .btn-guardar {
-        background-color: #4CAF50; 
+        background-color: #4CAF50;
     }
 
         .btn-guardar:hover {
@@ -126,50 +126,66 @@
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script>
+        // ===================================================================
+        // VARIABLES GLOBALES
+        // ===================================================================
         var map;
-        var marcadoresEnMapa = {}; // Objeto para guardar los 'pins'
-        var searchMarker = null;
+        var marcadoresEnMapa = {}; // Objeto para guardar los marcadores por ID
+        var poligonosEnMapa = []; // Array para guardar todos los polígonos cargados
+        var searchMarker = null; // Marcador temporal de búsqueda
 
         document.addEventListener("DOMContentLoaded", function () {
 
-            // --- Configuración Inicial ---
+            // ===================================================================
+            // CONFIGURACIÓN INICIAL DEL MAPA
+            // ===================================================================
             const latitud = -38.416097;
             const longitud = -63.616672;
             const zoom = 5;
 
-            // --- Capas Base ---
+            // ===================================================================
+            // CAPAS BASE
+            // ===================================================================
             var argenmap = L.tileLayer('https://wms.ign.gob.ar/geoserver/gwc/service/tms/1.0.0/capabaseargenmap@EPSG%3A3857@png/{z}/{x}/{-y}.png', {
                 attribution: '© <a href="https://www.ign.gob.ar/">IGN</a>',
                 minZoom: 1,
                 maxZoom: 20
             });
+
             var mapaSatelital = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                 attribution: 'Tiles &copy; Esri'
             });
+
             var baseMaps = {
                 "Mapa Estándar (IGN)": argenmap,
                 "Satelital (Esri)": mapaSatelital
             };
 
-            // --- Inicialización del Mapa ---
+            // ===================================================================
+            // INICIALIZACIÓN DEL MAPA
+            // ===================================================================
             map = L.map('mapaIGN', {
                 center: [latitud, longitud],
                 zoom: zoom,
                 layers: [argenmap],
-                zoomControl: false // Desactivamos el control de zoom por defecto
+                zoomControl: false // Desactivamos el control por defecto
             });
 
-            // --- Control de Zoom (abajo a la derecha) ---
+            // ===================================================================
+            // CONTROLES DEL MAPA
+            // ===================================================================
+
+            // Control de Zoom (abajo a la derecha)
             L.control.zoom({
                 position: 'bottomright'
             }).addTo(map);
 
-            // --- Control de Capas (abajo a la izquierda) ---
+            // Control de Capas (abajo a la izquierda)
             L.control.layers(baseMaps, null, {
                 position: 'bottomleft'
             }).addTo(map);
 
-            // --- Control de Búsqueda (arriba a la izquierda) ---
+            // Control de Búsqueda (arriba a la izquierda)
             var geocoder = L.Control.geocoder({
                 defaultMarkGeocode: false,
                 position: 'topleft',
@@ -182,18 +198,28 @@
             })
             .on('markgeocode', function(e) {
                 var latlng = e.geocode.center;
+
+                // Eliminar marcador de búsqueda anterior si existe
                 if (searchMarker) {
                     map.removeLayer(searchMarker);
                 }
+
+                // Crear nuevo marcador de búsqueda
                 searchMarker = L.marker(latlng).addTo(map);
                 searchMarker.bindPopup(e.geocode.name).openPopup();
                 map.flyTo(latlng, 16);
+
+                // Eliminar marcador al cerrar el popup
                 searchMarker.on('popupclose', function() {
-                    map.removeLayer(searchMarker); // Borra el pin del mapa
-                    searchMarker = null; // Limpia la variable
+                    map.removeLayer(searchMarker);
+                    searchMarker = null;
                 });
             })
             .addTo(map);
+
+            // ===================================================================
+            // CONFIGURACIÓN DE RUTAS
+            // ===================================================================
 
             var router = L.Routing.osrmv1({
                 serviceUrl: 'https://router.project-osrm.org/route/v1',
@@ -201,7 +227,7 @@
                 alternatives: false
             });
 
-            // Ruta 1: CABA -> Córdoba
+            // Ruta 1: CABA -> Córdoba (Ruta directa)
             var ruta1 = L.Routing.control({
                 waypoints: [
                     L.latLng(-34.6037, -58.3816), // CABA
@@ -265,39 +291,12 @@
                 }
             }).addTo(map);
 
-
-            // TRIÁNGULO
-
-
-            var verticeNorte = [-33.987074573755905, -63.622237592445565];
-            var verticeSurOeste = [-33.987074573755905, -61.4693868116242];
-            var verticeSurEste = [-35.255355059007194, -62.545812202034885];
-
-            var triangulo = L.polygon([
-                verticeNorte,
-                verticeSurEste,
-                verticeSurOeste
-            ], {
-                color: '#003366',
-                fillColor: '#003366',
-                fillOpacity: 0.4,
-                weight: 3
-            }).addTo(map);
-
-            triangulo.bindPopup(`
-                <b>Triángulo Equilátero Invertido</b><br>
-                Zona: Sur Córdoba - Sur Santa Fe - NO Buenos Aires<br>
-                <small>Vértice Norte: ${verticeNorte}</small><br>
-                <small>Vértice SO: ${verticeSurOeste}</small><br>
-                <small>Vértice SE: ${verticeSurEste}</small>
-            `);
-
-            
-            // MENÚ DESPLEGABLE
- 
+            // ===================================================================
+            // MENÚ DESPLEGABLE (arriba a la derecha)
+            // ===================================================================
 
             var rutasVisibles = true;
-            var trianguloVisible = true;
+            var poligonosVisibles = true;
 
             var menuDesplegable = L.control({position: 'topright'});
 
@@ -308,18 +307,18 @@
                     <a href="#" class="menu-toggle" title="Menú de opciones">☰</a>
                     <div class="menu-items">
                         <button class="menu-item" id="btnRutas">🛣️ Mostrar/Ocultar Rutas</button>
-                        <button class="menu-item" id="btnTriangulo">▲ Mostrar/Ocultar Triángulo</button>
+                        <button class="menu-item" id="btnPoligonos">▲ Mostrar/Ocultar Polígonos</button>
                     </div>
                 `;
 
-                // Toggle del menú
+                // Toggle del menú desplegable
                 div.querySelector('.menu-toggle').onclick = function(e) {
                     L.DomEvent.stop(e);
                     e.preventDefault();
                     div.classList.toggle('abierto');
                 };
 
-                // Botón de rutas
+                // Botón para mostrar/ocultar rutas
                 div.querySelector('#btnRutas').onclick = function(e) {
                     L.DomEvent.stop(e);
                     if (rutasVisibles) {
@@ -335,15 +334,21 @@
                     }
                 };
 
-                // Botón de triángulo
-                div.querySelector('#btnTriangulo').onclick = function(e) {
+                // Botón para mostrar/ocultar polígonos
+                div.querySelector('#btnPoligonos').onclick = function(e) {
                     L.DomEvent.stop(e);
-                    if (trianguloVisible) {
-                        map.removeLayer(triangulo);
-                        trianguloVisible = false;
+                    if (poligonosVisibles) {
+                        // Ocultar todos los polígonos
+                        poligonosEnMapa.forEach(function(poly) {
+                            map.removeLayer(poly);
+                        });
+                        poligonosVisibles = false;
                     } else {
-                        triangulo.addTo(map);
-                        trianguloVisible = true;
+                        // Mostrar todos los polígonos
+                        poligonosEnMapa.forEach(function(poly) {
+                            poly.addTo(map);
+                        });
+                        poligonosVisibles = true;
                     }
                 };
 
@@ -352,35 +357,27 @@
 
             menuDesplegable.addTo(map);
 
-            // --- Carga del CRUD ---
-            cargarMarcadores();
-            cargarPoligonos();
-
-            // Evento de DOBLE CLIC en el mapa (para crear marcadores)
-            map.on('dblclick', function(e) {
-                abrirPopupParaNuevoMarcador(e.latlng);
-            });
             // ===================================================================
-            // ⬇️ ⬇️ ⬇️ NUEVO BLOQUE PARA DIBUJAR POLÍGONOS ⬇️ ⬇️ ⬇️
+            // CONFIGURACIÓN DE LEAFLET.DRAW (Dibujar Polígonos)
             // ===================================================================
 
-            // 1. Capa para guardar los dibujos
+            // Capa para guardar los dibujos
             var drawnItems = new L.FeatureGroup();
             map.addLayer(drawnItems);
 
-            // 2. Configuración del Toolbar de Dibujo
+            // Configuración del Toolbar de Dibujo
             var drawControl = new L.Control.Draw({
                 position: 'topleft',
                 draw: {
                     polygon: {
-                        shapeOptions: { color: '#f06' }, // Color fucsia
+                        shapeOptions: { color: '#f06' }, // Color fucsia para nuevos polígonos
                         allowIntersection: false,
                         drawError: {
                             color: '#e1e100',
                             message: '<strong>Error:</strong> No podés cruzar las líneas!'
                         },
                     },
-                    // Desactivamos las otras herramientas
+                    // Desactivamos las otras herramientas de dibujo
                     polyline: false,
                     rectangle: false,
                     circle: false,
@@ -388,74 +385,63 @@
                     circlemarker: false
                 },
                 edit: {
-                    featureGroup: drawnItems // (Dejamos esto para un futuro "Editar")
+                    featureGroup: drawnItems // Para editar en el futuro
                 }
             });
             map.addControl(drawControl);
 
-            // 3. Evento CUANDO SE CREA UN DIBUJO
+            // Evento cuando se crea un nuevo dibujo
             map.on(L.Draw.Event.CREATED, function (event) {
                 var layer = event.layer;
 
-                // Pedimos el nombre
+                // Pedimos el nombre al usuario
                 var nombre = prompt("Ingresá un nombre para esta zona:");
                 if (!nombre) return; // Si cancela, no hacemos nada
 
-                // Obtenemos las coordenadas
-                var latLngs = layer.getLatLngs()[0]; // [[lat, lng], [lat, lng], ...]
+                // Obtenemos las coordenadas del polígono dibujado
+                var latLngs = layer.getLatLngs()[0]; // Array de LatLng
 
-                // Las convertimos a un array simple
+                // Convertimos a formato simple [[lat, lng], [lat, lng], ...]
                 var coordenadas = latLngs.map(function(p) {
                     return [p.lat, p.lng];
                 });
 
-                // 4. Llamamos a la función para guardar en la BBDD
+                // Guardamos en la base de datos
                 guardarPoligono(nombre, coordenadas);
-
-                // (Opcional: agregamos el polígono al mapa visualmente)
-                // (Lo comentamos para que se cargue desde la BBDD)
-                // drawnItems.addLayer(layer);
             });
 
+            // ===================================================================
+            // CARGA INICIAL DE DATOS
+            // ===================================================================
 
-            // --- Carga del CRUD (TU CÓDIGO) ---
             cargarMarcadores();
-            cargarPoligonos(); // <-- NUEVA FUNCIÓN (ver abajo)
+            cargarPoligonos();
+
+            // ===================================================================
+            // EVENTO: DOBLE CLIC para crear nuevo marcador
+            // ===================================================================
+
+            map.on('dblclick', function(e) {
+                abrirPopupParaNuevoMarcador(e.latlng);
+            });
         });
 
-        // --- FUNCIONES PARA EL CRUD ---
+        // ===================================================================
+        // ===================================================================
+        // FUNCIONES PARA MARCADORES (CRUD)
+        // ===================================================================
+        // ===================================================================
 
-        
-
-        function agregarMarcadorAlMapa(marcador) {
-            console.log("Marcador recibido:", marcador);
-            const latLng = [marcador.latitud, marcador.longitud];
-            var pin = L.marker(latLng).addTo(map);
-
-            pin.markerData = {
-                id: marcador.id,
-                nombre: marcador.nombre,
-                latitud: marcador.latitud,
-                longitud: marcador.longitud
-            };
-
-            var popupContent = `
-                <div id="popup-ver-${marcador.id}">
-                    <b>${marcador.nombre}</b>
-                    <br>
-                    <button class="btn-editar" onclick="mostrarFormularioEdicion(event, ${marcador.id})">Editar</button>
-                    <button class="btn-borrar" onclick="borrarMarcador(event, ${marcador.id})">Borrar</button>
-                </div>
-            `;
-            pin.bindPopup(popupContent);
-            marcadoresEnMapa[marcador.id] = pin;
-        }
-
+        /**
+         * Carga todos los marcadores desde la API
+         */
         async function cargarMarcadores() {
             try {
                 const response = await fetch('/api/marcadores');
                 if (!response.ok) throw new Error('Error al cargar marcadores');
+
                 const marcadores = await response.json();
+
                 marcadores.forEach(function(marcador) {
                     agregarMarcadorAlMapa(marcador);
                 });
@@ -464,6 +450,42 @@
             }
         }
 
+        /**
+         * Agrega un marcador al mapa con su popup
+         */
+        function agregarMarcadorAlMapa(marcador) {
+            console.log("Marcador recibido:", marcador);
+
+            const latLng = [marcador.latitud, marcador.longitud];
+            var pin = L.marker(latLng).addTo(map);
+
+            // Guardamos los datos del marcador en el objeto del pin
+            pin.markerData = {
+                id: marcador.id,
+                nombre: marcador.nombre,
+                latitud: marcador.latitud,
+                longitud: marcador.longitud
+            };
+
+            // Contenido del popup
+            var popupContent = `
+                <div id="popup-ver-${marcador.id}">
+                    <b>${marcador.nombre}</b>
+                    <br>
+                    <button class="btn-editar" onclick="mostrarFormularioEdicion(event, ${marcador.id})">Editar</button>
+                    <button class="btn-borrar" onclick="borrarMarcador(event, ${marcador.id})">Borrar</button>
+                </div>
+            `;
+
+            pin.bindPopup(popupContent);
+
+            // Guardamos referencia en el objeto global
+            marcadoresEnMapa[marcador.id] = pin;
+        }
+
+        /**
+         * Abre un popup para crear un nuevo marcador
+         */
         function abrirPopupParaNuevoMarcador(latlng) {
             var lat = latlng.lat.toFixed(6);
             var lng = latlng.lng.toFixed(6);
@@ -477,24 +499,40 @@
                     <br>
                     <button onclick='guardarMarcador(event, ${latlng.lat}, ${latlng.lng})'>Guardar</button>
                 </div>`;
+
             L.popup()
                 .setLatLng(latlng)
                 .setContent(popupContent)
                 .openOn(map);
         }
 
+        /**
+         * Guarda un nuevo marcador en la base de datos
+         */
         async function guardarMarcador(event, lat, lng) {
             event.stopPropagation();
+
             const nombre = document.getElementById('inputNombreMarcador').value;
-            if (!nombre) { alert('Por favor, ingresa un nombre.'); return; }
-            const nuevoMarcador = { nombre: nombre, latitud: lat, longitud: lng };
+            if (!nombre) {
+                alert('Por favor, ingresa un nombre.');
+                return;
+            }
+
+            const nuevoMarcador = {
+                nombre: nombre,
+                latitud: lat,
+                longitud: lng
+            };
+
             try {
                 const response = await fetch('/api/marcadores', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(nuevoMarcador)
                 });
+
                 if (!response.ok) throw new Error('Error al guardar el marcador');
+
                 const marcadorGuardado = await response.json();
                 agregarMarcadorAlMapa(marcadorGuardado);
                 map.closePopup();
@@ -504,12 +542,21 @@
             }
         }
 
+        /**
+         * Borra un marcador de la base de datos y del mapa
+         */
         async function borrarMarcador(event, id) {
             event.stopPropagation();
+
             if (!confirm("¿Seguro que querés borrar este marcador?")) return;
+
             try {
-                const response = await fetch(`/api/marcadores/${id}`, { method: 'DELETE' });
+                const response = await fetch(`/api/marcadores/${id}`, {
+                    method: 'DELETE'
+                });
+
                 if (!response.ok) throw new Error('Error al borrar el marcador');
+
                 var pin = marcadoresEnMapa[id];
                 map.removeLayer(pin);
                 delete marcadoresEnMapa[id];
@@ -520,8 +567,12 @@
             }
         }
 
+        /**
+         * Muestra el formulario de edición en el popup
+         */
         function mostrarFormularioEdicion(event, id) {
             event.stopPropagation();
+
             var pin = marcadoresEnMapa[id];
             var data = pin.markerData;
 
@@ -535,13 +586,19 @@
                     <button onclick="cancelarEdicion(event, ${id})">Cancelar</button>
                 </div>
             `;
+
             pin.setPopupContent(formContent);
         }
 
+        /**
+         * Cancela la edición y vuelve al popup normal
+         */
         function cancelarEdicion(event, id) {
             event.stopPropagation();
+
             var pin = marcadoresEnMapa[id];
             var data = pin.markerData;
+
             var popupContent = `
                 <div id="popup-ver-${data.id}">
                     <b>${data.nombre}</b>
@@ -550,32 +607,45 @@
                     <button class="btn-borrar" onclick="borrarMarcador(event, ${data.id})">Borrar</button>
                 </div>
             `;
+
             pin.setPopupContent(popupContent);
         }
 
+        /**
+         * Guarda los cambios de edición en la base de datos
+         */
         async function guardarEdicion(event, id) {
             event.stopPropagation();
 
             var pin = marcadoresEnMapa[id];
             var dataOriginal = pin.markerData;
+
             const nuevoNombre = document.getElementById(`inputEditarNombre-${id}`).value;
-            if (!nuevoNombre) { alert('El nombre no puede estar vacío.'); return; }
+            if (!nuevoNombre) {
+                alert('El nombre no puede estar vacío.');
+                return;
+            }
+
             const marcadorActualizado = {
                 id: id,
                 nombre: nuevoNombre,
                 latitud: dataOriginal.latitud,
                 longitud: dataOriginal.longitud
             };
+
             try {
                 const response = await fetch(`/api/marcadores/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(marcadorActualizado)
                 });
+
                 if (!response.ok) throw new Error('Error al actualizar en la API');
 
+                // Actualizamos los datos locales
                 pin.markerData.nombre = nuevoNombre;
 
+                // Volvemos al popup normal
                 var popupContent = `
                     <div id="popup-ver-${id}">
                         <b>${nuevoNombre}</b>
@@ -591,11 +661,16 @@
                 alert('No se pudieron guardar los cambios.');
             }
         }
+
         // ===================================================================
-        // ⬇️ ⬇️ ⬇️ NUEVAS FUNCIONES PARA POLÍGONOS ⬇️ ⬇️ ⬇️
+        // ===================================================================
+        // FUNCIONES PARA POLÍGONOS (CRUD)
+        // ===================================================================
         // ===================================================================
 
-        // LEER (Read): Carga todos los polígonos desde la API
+        /**
+         * Carga todos los polígonos desde la API
+         */
         async function cargarPoligonos() {
             try {
                 const response = await fetch('/api/poligonos');
@@ -604,23 +679,41 @@
                 const poligonos = await response.json();
 
                 poligonos.forEach(function(poligono) {
-                    // La API nos devuelve GeoJSON (que es [lon, lat])
-                    // Leaflet necesita (lat, lng), así que damos vuelta las coordenadas
-                    var coordenadasLeaflet = poligono.geometria.coordinates[0].map(function(p) {
-                        return [p[1], p[0]]; // Invertimos (lon, lat) a (lat, lon)
+                    // Convertir coordenadas al formato Leaflet [lat, lng]
+                    var coordenadasLeaflet = poligono.coordenadas.map(function(p) {
+                        return [p[0], p[1]]; // Ya vienen como [lat, lng] desde el backend
                     });
 
-                    var polyLayer = L.polygon(coordenadasLeaflet, { color: '#f06' })
-                        .bindPopup(`<b>${poligono.nombre}</b>`) // (Acá iría el CRUD de polígonos)
-                        .addTo(map);
+                    // Detectar si es el triángulo para aplicar estilo especial
+                    var esTriangulo = poligono.nombre === 'Triángulo Equilátero Invertido';
+
+                    // Configuración de estilo
+                    var color = esTriangulo ? '#003366' : '#f06';
+                    var fillOpacity = esTriangulo ? 0.4 : 0.2;
+
+                    // Crear el polígono en el mapa
+                    var polyLayer = L.polygon(coordenadasLeaflet, {
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: fillOpacity,
+                        weight: 3
+                    })
+                    .bindPopup(`<b>${poligono.nombre}</b>`)
+                    .addTo(map);
+
+                    // Guardamos la referencia para poder mostrar/ocultar
+                    poligonosEnMapa.push(polyLayer);
                 });
 
             } catch (error) {
                 console.error("Error en cargarPoligonos:", error);
             }
         }
-        async function guardarPoligono(nombre, coordenadas) {
 
+        /**
+         * Guarda un nuevo polígono en la base de datos
+         */
+        async function guardarPoligono(nombre, coordenadas) {
             const nuevoPoligono = {
                 nombre: nombre,
                 coordenadas: coordenadas // [[lat, lng], [lat, lng], ...]
@@ -637,9 +730,9 @@
 
                 const poligonoGuardado = await response.json();
 
-                // Recargamos todos los polígonos para mostrar el nuevo
-                // (Una versión simple, idealmente solo agregaríamos el nuevo)
-                window.location.reload(); // Recarga la página
+                // Recargamos la página para mostrar el nuevo polígono
+                // (Una versión más optimizada sería agregar solo el nuevo sin recargar)
+                window.location.reload();
 
             } catch (error) {
                 console.error("Error en guardarPoligono:", error);

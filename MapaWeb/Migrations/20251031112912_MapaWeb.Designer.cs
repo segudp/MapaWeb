@@ -12,8 +12,8 @@ using NetTopologySuite.Geometries;
 namespace MapaWeb.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251031112137_MigracionInicial")]
-    partial class MigracionInicial
+    [Migration("20251031112912_MapaWeb")]
+    partial class MapaWeb
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

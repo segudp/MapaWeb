@@ -14,21 +14,28 @@ public class PoligonosController : ControllerBase
     public PoligonosController(AppDbContext context)
     {
         _context = context;
-        
         _factory = new GeometryFactory(new PrecisionModel(), 4326);
     }
 
     // GET: /api/poligonos
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Poligono>>> GetPoligonos()
+    public async Task<ActionResult<IEnumerable<object>>> GetPoligonos()
     {
-        return await _context.Poligonos.ToListAsync();
+        var poligonos = await _context.Poligonos.ToListAsync();
+
+        // Convertimos a un formato que Leaflet entienda
+        var resultado = poligonos.Select(p => new
+        {
+            id = p.Id,
+            nombre = p.Nombre,
+            coordenadas = p.Geometria.Coordinates.Select(c => new[] { c.Y, c.X }).ToList()
+        });
+
+        return Ok(resultado);
     }
 
-  
     [HttpPost]
-    [HttpPost]
-    public async Task<ActionResult<Poligono>> PostPoligono([FromBody] PoligonoDto dto)
+    public async Task<ActionResult<object>> PostPoligono([FromBody] PoligonoDto dto)
     {
         try
         {
@@ -43,7 +50,6 @@ public class PoligonosController : ControllerBase
             }
 
             // 2. Cerramos el polígono (el primer y último punto deben ser iguales)
-            // Leaflet.Draw NO repite el primer punto, así que lo agregamos
             if (coordenadas.Count > 0 && !coordenadas[0].Equals(coordenadas[coordenadas.Count - 1]))
             {
                 coordenadas.Add(coordenadas[0]);
@@ -67,16 +73,37 @@ public class PoligonosController : ControllerBase
 
             // 5. Guardamos en la BBDD
             _context.Poligonos.Add(nuevoPoligono);
-            await _context.SaveChangesAsync(); // <-- Si esto falla, el catch lo agarra
+            await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetPoligonos), new { id = nuevoPoligono.Id }, nuevoPoligono);
+            // 6. Devolvemos en formato compatible con Leaflet
+            var resultado = new
+            {
+                id = nuevoPoligono.Id,
+                nombre = nuevoPoligono.Nombre,
+                coordenadas = nuevoPoligono.Geometria.Coordinates.Select(c => new[] { c.Y, c.X }).ToList()
+            };
+
+            return CreatedAtAction(nameof(GetPoligonos), new { id = nuevoPoligono.Id }, resultado);
         }
         catch (Exception ex)
         {
-            // 6. Si algo falla, devolvemos el error 500 con detalles
             return StatusCode(500, new { message = "Error interno del servidor", details = ex.Message });
         }
     }
 
+    // DELETE: /api/poligonos/{id}
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeletePoligono(int id)
+    {
+        var poligono = await _context.Poligonos.FindAsync(id);
+        if (poligono == null)
+        {
+            return NotFound();
+        }
 
+        _context.Poligonos.Remove(poligono);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
 }
