@@ -1,0 +1,104 @@
+﻿/* Mapa */
+#mapaIGN {
+    position: fixed; /* Lo saca del flujo normal de la página */
+    top: 0;
+    left: 0;
+    height: 100vh; /* 100% de la altura de la ventana */
+    width: 100vw; /* 100% del ancho de la ventana */
+    z-index: 10;
+}
+
+/* Buscador encima del mapa */
+.leaflet-control-geocoder {
+    z-index: 1000;
+}
+
+/* Botones CRUD */
+.btn-borrar, .btn-editar, .btn-guardar {
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-top: 5px;
+    border-radius: 3px;
+}
+
+.btn-borrar {
+    background-color: #f44336;
+}
+
+    .btn-borrar:hover {
+        background-color: #d32f2f;
+    }
+
+.btn-editar {
+    background-color: #007bff;
+}
+
+    .btn-editar:hover {
+        background-color: #0056b3;
+    }
+
+.btn-guardar {
+    background-color: #4CAF50;
+}
+
+    .btn-guardar:hover {
+        background-color: #45a049;
+    }
+
+.leaflet-routing-container {
+    display: none;
+}
+
+/* Menú desplegable */
+.menu-desplegable {
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+    text-align: right;
+}
+
+    .menu-desplegable .menu-toggle {
+        width: 34px;
+        height: 34px;
+        line-height: 34px;
+        text-align: center;
+        font-size: 18px;
+        text-decoration: none;
+        display: inline-block;
+        cursor: pointer;
+        background: white;
+        border-bottom: 1px solid #ccc;
+    }
+
+        .menu-desplegable .menu-toggle:hover {
+            background: #f4f4f4;
+        }
+
+    .menu-desplegable .menu-items {
+        display: none;
+        padding: 5px;
+        text-align: left;
+    }
+
+    .menu-desplegable.abierto .menu-items {
+        display: block;
+    }
+
+    .menu-desplegable .menu-item {
+        width: 100%;
+        padding: 8px 12px;
+        margin: 2px 0;
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        cursor: pointer;
+        text-align: left;
+        font-size: 13px;
+    }
+
+        .menu-desplegable .menu-item:hover {
+            background: #f4f4f4;
+        }
