@@ -42,7 +42,7 @@ document.addEventListener("DOMContentLoaded", function () {
     map = L.map('mapaIGN', {
         center: [latitud, longitud],
         zoom: zoom,
-        layers: [argenmap, drawnItems], 
+        layers: [argenmap, drawnItems, marcadoresGroup], 
         zoomControl: false
     });
 
@@ -194,6 +194,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 map.removeLayer(marcadoresGroup);
                 marcadoresVisibles = false;
             }
+            localStorage.setItem('mapaVerMarcadores', this.checked);
         };
 
         // Checkbox de Polígonos
@@ -205,6 +206,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 map.removeLayer(drawnItems);
                 poligonosVisibles = false;
             }
+            localStorage.setItem('mapaVerPoligonos', this.checked);
         };
 
         // Checkbox de Rutas
@@ -220,6 +222,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 map.removeControl(ruta3);
                 rutasVisibles = false;
             }
+            localStorage.setItem('mapaVerRutas', this.checked);
         };
         
 
@@ -227,6 +230,50 @@ document.addEventListener("DOMContentLoaded", function () {
     };
     menuDesplegable.addTo(map);
 
+
+    function restaurarEstadoCapas() {
+        // 1. Restaurar Marcadores
+        // getItem puede devolver "true", "false" o null (si nunca se guardó)
+        const verMarcadores = localStorage.getItem('mapaVerMarcadores');
+        if (verMarcadores !== null) { // Solo si ya hay un valor guardado
+            const isChecked = (verMarcadores === 'true'); // Convertir string a boolean
+
+            document.getElementById('checkMarcadores').checked = isChecked;
+            if (!isChecked) {
+                map.removeLayer(marcadoresGroup);
+                marcadoresVisibles = false; // Sincroniza la variable global
+            }
+        }
+        // Si es null, no hace nada (se queda 'true' por defecto)
+
+        // 2. Restaurar Polígonos
+        const verPoligonos = localStorage.getItem('mapaVerPoligonos');
+        if (verPoligonos !== null) {
+            const isChecked = (verPoligonos === 'true');
+
+            document.getElementById('checkPoligonos').checked = isChecked;
+            if (!isChecked) {
+                map.removeLayer(drawnItems);
+                poligonosVisibles = false;
+            }
+        }
+
+        // 3. Restaurar Rutas
+        const verRutas = localStorage.getItem('mapaVerRutas');
+        if (verRutas !== null) {
+            const isChecked = (verRutas === 'true');
+
+            document.getElementById('checkRutas').checked = isChecked;
+            if (!isChecked) {
+                map.removeControl(ruta1);
+                map.removeControl(ruta2);
+                map.removeControl(ruta3);
+                rutasVisibles = false;
+            }
+        }
+    }
+
+    restaurarEstadoCapas();
     //Carga del CRUD
     cargarMarcadores();
     cargarPoligonos();
@@ -893,40 +940,86 @@ async function cargarMarcadores() {
 }
 
 // Crea un marker, le asigna datos y le pone popup con acciones.
+// Carga marcadores desde la API y los muestra.
 function agregarMarcadorAlMapa(marcador) {
     const latLng = [marcador.latitud, marcador.longitud];
-    var pin = L.marker(latLng); 
+
+    // Se crea el pin (sin añadirlo al mapa)
+    var pin = L.marker(latLng);
+
     pin.markerData = { id: marcador.id, nombre: marcador.nombre, latitud: marcador.latitud, longitud: marcador.longitud };
+
+    // Escapamos el nombre para que no rompa el 'onclick'
+    var nombreEscapado = marcador.nombre.replace(/'/g, "\\'");
+
     var popupContent = `
         <div id="popup-ver-${marcador.id}">
             <b>${marcador.nombre}</b>
             <br>
-            <button class="btn-editar" onclick="mostrarFormularioEdicion(event, ${marcador.id})">Editar</button>
-            <button class="btn-borrar" onclick="borrarMarcador(event, ${marcador.id})">Borrar</button>
+            <button class="btn-editar" 
+                    onclick="mostrarFormularioEdicion(event, ${marcador.id})">Editar</button>
+            <button class="btn-borrar" 
+                    onclick="borrarMarcador(event, ${marcador.id})">Borrar</button>
+            
+            <button class="btn-editar" style="margin-left: 5px;" 
+                    onclick="event.stopPropagation(); window.iniciarRuta(${marcador.latitud}, ${marcador.longitud}, '${nombreEscapado}')">
+                📍 Indicaciones
+            </button>
         </div>
     `;
     pin.bindPopup(popupContent);
 
-    pin.addTo(marcadoresGroup); 
+    // Se añade al GRUPO (no al 'map')
+    pin.addTo(marcadoresGroup);
 
     marcadoresEnMapa[marcador.id] = pin;
 }
 
+
+
+
 // Abre popup para crear un nuevo marcador en la posición dada.
+// Reemplazá tu función original por esta
 function abrirPopupParaNuevoMarcador(latlng) {
-    var lat = latlng.lat.toFixed(6);
-    var lng = latlng.lng.toFixed(6);
-    var popupContent = `
-        <div>
-            <b>Nuevo Marcador</b><br>
-            <small>Lat: ${lat}, Lng: ${lng}</small>
-            <hr style="margin: 4px 0;">
-            Nombre: <input type='text' id='inputNombreMarcador' />
-            <br>
-            <button onclick='guardarMarcador(event, ${latlng.lat}, ${latlng.lng})'>Guardar</button>
-        </div>`;
-    L.popup().setLatLng(latlng).setContent(popupContent).openOn(map);
+     var lat = latlng.lat.toFixed(6);
+     var lng = latlng.lng.toFixed(6);
+
+    // Nombre genérico que le pasaremos a la función de ruteo
+    var nombreGenerico = 'Punto seleccionado';
+    // Escapamos las comillas por si acaso
+    var nombreEscapado = nombreGenerico.replace(/'/g, "\\'");
+
+     var popupContent = `
+         <div>
+             <b>Nuevo Marcador</b><br>
+             <small>Lat: ${lat}, Lng: ${lng}</small>
+             <hr style="margin: 4px 0;">
+             Nombre: <input type='text' id='inputNombreMarcador' />
+             <br>
+                        <button class="btn-guardar" 
+                    onclick='guardarMarcador(event, ${latlng.lat}, ${latlng.lng})'>
+                Guardar
+            </button>
+            
+            <button class="btn-editar" style="margin-left: 5px;" 
+                    onclick="event.stopPropagation(); window.iniciarRuta(${latlng.lat}, ${latlng.lng}, '${nombreEscapado}')">
+                📍 Indicaciones
+            </button>
+                    </div>`;
+     L.popup().setLatLng(latlng).setContent(popupContent).openOn(map);
 }
+
+/**
+ * Helper para llamar a iniciarRuta desde el popup de 'Nuevo Marcador'
+ */
+function iniciarRutaDesdePopup(event, lat, lng, nombre) {
+    // Detenemos el evento para que el popup no haga cosas raras
+    event.stopPropagation();
+
+    // Llamamos a la función principal de ruteo
+    window.iniciarRuta(lat, lng, nombre || "Punto en mapa");
+}
+
 
 // Envía POST para guardar marcador y lo agrega al mapa si OK.
 async function guardarMarcador(event, lat, lng) {
@@ -944,19 +1037,37 @@ async function guardarMarcador(event, lat, lng) {
 }
 
 // Elimina marcador en la API y lo quita del mapa local.
+// REEMPLAZÁ TU FUNCIÓN 'borrarMarcador' POR ESTA
 async function borrarMarcador(event, id) {
     event.stopPropagation();
     if (!confirm("¿Seguro que querés borrar este marcador?")) return;
+
     try {
         const response = await fetch(`/api/marcadores/${id}`, { method: 'DELETE' });
         if (!response.ok) throw new Error('Error al borrar el marcador');
+
+        // --- INICIO DEL ARREGLO ---
+
+        // 1. Cerramos el popup ANTES de tocar el marcador.
+        // Esto evita que Leaflet se confunda.
+        map.closePopup();
+
+        // 2. Buscamos el marcador en nuestro objeto local
         var pin = marcadoresEnMapa[id];
 
-        marcadoresGroup.removeLayer(pin);
+        // 3. Verificamos que existe y lo borramos
+        if (pin) {
+            marcadoresGroup.removeLayer(pin);
+            delete marcadoresEnMapa[id];
+        } else {
+            console.warn(`El marcador con id ${id} no se encontró en el caché local.`);
+        }
+        // --- FIN DEL ARREGLO ---
 
-        delete marcadoresEnMapa[id];
-        map.closePopup();
-    } catch (error) { console.error("Error en borrarMarcador:", error); alert('No se pudo borrar el marcador.'); }
+    } catch (error) {
+        console.error("Error en borrarMarcador:", error);
+        alert('No se pudo borrar el marcador.');
+    }
 }
 
 // Muestra formulario simple para editar el nombre del marcador.
@@ -978,22 +1089,35 @@ function mostrarFormularioEdicion(event, id) {
 }
 
 // Restaura popup original si se cancela la edición.
+// Restaura popup original si se cancela la edición.
 function cancelarEdicion(event, id) {
     event.stopPropagation();
     var pin = marcadoresEnMapa[id];
     var data = pin.markerData;
+
+    // Escapamos el nombre aquí también
+    var nombreEscapado = data.nombre.replace(/'/g, "\\'");
+
     var popupContent = `
         <div id="popup-ver-${data.id}">
             <b>${data.nombre}</b>
             <br>
-            <button class="btn-editar" onclick="mostrarFormularioEdicion(event, ${data.id})">Editar</button>
-            <button class="btn-borrar" onclick="borrarMarcador(event, ${data.id})">Borrar</button>
+            <button class="btn-editar" 
+                    onclick="mostrarFormularioEdicion(event, ${data.id})">Editar</button>
+            <button class="btn-borrar" 
+                    onclick="borrarMarcador(event, ${data.id})">Borrar</button>
+
+            <button class="btn-editar" style="margin-left: 5px;" 
+                    onclick="event.stopPropagation(); window.iniciarRuta(${data.latitud}, ${data.longitud}, '${nombreEscapado}')">
+                📍 Indicaciones
+            </button>
         </div>
     `;
     pin.setPopupContent(popupContent);
 }
 
 
+// Envía PUT para actualizar el nombre y actualiza el popup local.
 // Envía PUT para actualizar el nombre y actualiza el popup local.
 async function guardarEdicion(event, id) {
     event.stopPropagation();
@@ -1002,7 +1126,7 @@ async function guardarEdicion(event, id) {
     var nuevoNombre = document.getElementById(`inputEditarNombre-${id}`).value;
     if (!nuevoNombre) { alert("El nombre no puede estar vacío."); return; }
 
-    // Datos actualizados 
+    // Datos actualizados 
     var marcadorActualizado = {
         id: id,
         nombre: nuevoNombre,
@@ -1019,10 +1143,10 @@ async function guardarEdicion(event, id) {
 
         if (!response.ok) throw new Error('Error al actualizar el marcador');
 
-       
+
         pin.markerData.nombre = nuevoNombre;
 
-        
+
         cancelarEdicion(event, id);
 
     } catch (error) {
@@ -1115,7 +1239,7 @@ function crearPanelRuta(control, nombreOrigen, nombreDestino) {
 
         waypoints.forEach((wp, index) => {
             const letra = String.fromCharCode(65 + index); // A, B, C...
-            const nombre = wp.name || (wp.latLng ? `Punto ${letra}` : "Buscar...");
+            const nombre = wp.name || (wp.latLng ? `Punto ${letra}` : "");
 
             // Creamos el HTML para este waypoint
             const wrapper = document.createElement('div');
