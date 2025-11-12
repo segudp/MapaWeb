@@ -1,19 +1,30 @@
-﻿/* Mapa */
+﻿/* ===================================================================
+   ESTILOS GENERALES DEL MAPA Y UI
+   =================================================================== */
+
 #mapaIGN {
-    position: fixed; /* Lo saca del flujo normal de la página */
+    position: fixed;
     top: 0;
     left: 0;
-    height: 100vh; /* 100% de la altura de la ventana */
-    width: 100vw; /* 100% del ancho de la ventana */
+    height: 100vh;
+    width: 100vw;
     z-index: 10;
 }
 
-/* Buscador encima del mapa */
+/* Oculta el panel de ruta por defecto de Leaflet */
+.leaflet-routing-container {
+    display: none;
+}
+
+/* Posiciona la lupa de búsqueda de Leaflet */
 .leaflet-control-geocoder {
     z-index: 1000;
 }
 
-/* Botones CRUD */
+/* ===================================================================
+   BOTONES CRUD (Editar/Borrar Marcadores y Polígonos)
+   =================================================================== */
+
 .btn-borrar, .btn-editar, .btn-guardar {
     color: white;
     border: none;
@@ -48,11 +59,10 @@
         background-color: #45a049;
     }
 
-.leaflet-routing-container {
-    display: none;
-}
+/* ===================================================================
+   MENÚ DESPLEGABLE (Arriba a la derecha)
+   =================================================================== */
 
-/* Menú desplegable */
 .menu-desplegable {
     background: white;
     border-radius: 4px;
@@ -102,3 +112,219 @@
         .menu-desplegable .menu-item:hover {
             background: #f4f4f4;
         }
+
+    .menu-desplegable .menu-item-checkbox {
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        user-select: none; 
+        border-radius: 3px;
+    }
+
+        .menu-desplegable .menu-item-checkbox:hover {
+            background: #f4f4f4;
+        }
+
+        .menu-desplegable .menu-item-checkbox input[type="checkbox"] {
+            margin-right: 8px; 
+            cursor: pointer;
+        }
+
+        .menu-desplegable .menu-item-checkbox label {
+            cursor: pointer;
+            flex: 1; 
+            font-size: 13px;
+        }
+
+
+
+
+/* ===================================================================
+   PANEL DE RUTA 
+   =================================================================== */
+
+
+.custom-routing-panel {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    background: white;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+    border-radius: 5px;
+    width: 300px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+}
+
+    
+    .custom-routing-panel .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        background: #f8f8f8;
+        border-bottom: 1px solid #ddd;
+        cursor: default;
+    }
+
+        .custom-routing-panel .panel-header strong {
+            font-size: 16px;
+        }
+
+    .custom-routing-panel .panel-controles button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 16px;
+        padding: 2px 5px;
+        line-height: 1;
+    }
+
+#btnCerrarRuta {
+    color: #d00;
+}
+
+/* --- 3. Cuerpo (Info, Inputs, Paradas) --- */
+.custom-routing-panel .panel-body {
+    padding: 12px;
+    overflow-y: auto;
+    max-height: 500px;
+    opacity: 1;
+    transition: all 0.3s ease;
+}
+
+.custom-routing-panel .info-ruta {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px;
+    background: #eee;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+/* --- 4. Inputs y Paradas (A, B, C...) --- */
+.custom-routing-panel .waypoint-input-wrapper {
+    display: flex;
+    align-items: center;
+    position: relative;
+    margin-bottom: 8px;
+}
+
+.custom-routing-panel .waypoint {
+    flex-grow: 1; /* El input ocupa el espacio disponible */
+    display: flex;
+    align-items: center;
+}
+
+.custom-routing-panel .waypoint-label {
+    font-weight: bold;
+    margin-right: 8px;
+    color: #555;
+    width: 15px; /* Ancho fijo para 'A:', 'B:' */
+    text-align: center;
+}
+
+.custom-routing-panel .waypoint-input {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff; /* Fondo blanco para edición */
+    font-size: 14px;
+}
+
+/* Botón 'X' para borrar parada */
+.custom-routing-panel .waypoint-delete-btn {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: 8px;
+    font-family: Arial, sans-serif;
+}
+
+    .custom-routing-panel .waypoint-delete-btn:hover {
+        background: #c0392b;
+    }
+
+/* Botón "+ Agregar Parada" */
+#btnAgregarParada {
+    width: 100%;
+    padding: 8px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    margin-top: 5px;
+}
+
+    #btnAgregarParada:hover {
+        background: #218838;
+    }
+
+
+/* --- 5. Lista de Resultados de Búsqueda --- */
+.custom-routing-panel .waypoint-results-list {
+    position: absolute;
+    top: 36px; /* Abajo del input */
+    left: 0; /* Alineado con el wrapper */
+    right: 0;
+    z-index: 1001;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-top: none;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.custom-routing-panel .waypoint-result-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+    .custom-routing-panel .waypoint-result-item:last-child {
+        border-bottom: none;
+    }
+
+    .custom-routing-panel .waypoint-result-item:hover {
+        background: #f4f4f4;
+    }
+
+    .custom-routing-panel .waypoint-result-item.loading {
+        color: #888;
+        text-align: center;
+    }
+
+
+/* --- 6. Estado Minimizado del Panel --- */
+.custom-routing-panel.minimizado {
+    width: auto;
+    height: auto;
+}
+
+    .custom-routing-panel.minimizado .panel-body {
+        max-height: 0;
+        padding: 0 12px;
+        opacity: 0;
+        overflow: hidden;
+    }
