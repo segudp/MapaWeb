@@ -37,6 +37,17 @@
             background: #f4f4f4;
         }
 
+.boton-mi-ubicacion-link {
+    display: block;
+    width: 30px;
+    height: 30px;
+    line-height: 30px; /* Centra verticalmente */
+    text-align: center; /* Centra horizontalmente */
+    text-decoration: none;
+    color: black;
+    font-size: 1.4em; /* Hace el emoji más grande */
+    border-radius: 4px;
+}
 
 /*
    BOTONES 

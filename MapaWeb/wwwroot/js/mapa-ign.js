@@ -12,6 +12,140 @@ var ubicacionActualMarker = null;
 var watchId = null;
 
 
+/**
+ * (3) Actualiza o crea el marcador de círculo azul en el mapa.
+ * Se llama cada vez que 'watchPosition' detecta un cambio.
+ */
+function actualizarMarcadorUbicacion(lat, lng) {
+    const latlng = [lat, lng];
+
+    // Estilo del círculo: azul con borde blanco
+    const estiloMarcador = {
+        radius: 8,
+        fillColor: "#007bff", // Azul
+        color: "#ffffff",     // Borde blanco
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.9
+    };
+
+    if (!ubicacionActualMarker) {
+        // 1. No existe: lo creamos por primera vez
+        ubicacionActualMarker = L.circleMarker(latlng, estiloMarcador)
+            .bindPopup("Tu ubicación actual")
+            .addTo(map);
+    } else {
+        // 2. Ya existe: solo actualizamos su posición
+        ubicacionActualMarker.setLatLng(latlng);
+    }
+}
+
+function iniciarSeguimientoUbicacion() {
+    if (!navigator.geolocation) {
+        console.error("Geolocalización no soportada por este navegador.");
+        return;
+    }
+
+    // Opciones de geolocalización
+    const options = {
+        enableHighAccuracy: true, // Máxima precisión
+        timeout: 10000,           // 10 segundos de timeout
+        maximumAge: 30000         // 30 segundos de caché (como pediste)
+    };
+
+    // Iniciar el seguimiento y guardar el ID
+    watchId = navigator.geolocation.watchPosition(
+        (position) => {
+            // Éxito:
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            actualizarMarcadorUbicacion(lat, lng);
+        },
+        (error) => {
+            // Error:
+            let mensaje;
+            switch (error.code) {
+                case error.PERMISSION_DENIED:
+                    mensaje = "Permiso de ubicación denegado.";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    mensaje = "Información de ubicación no disponible.";
+                    break;
+                case error.TIMEOUT:
+                    mensaje = "Timeout al obtener la ubicación.";
+                    break;
+                default:
+                    mensaje = "Error desconocido al obtener la ubicación.";
+                    break;
+            }
+            console.warn(mensaje, error.message);
+        },
+        options
+    );
+}
+
+/**
+ * (2) Centra el mapa en la ubicación actual y muestra el popup.
+ * Se llama al hacer clic en el botón.
+ */
+function centrarEnMiUbicacion() {
+    if (ubicacionActualMarker) {
+        const latlng = ubicacionActualMarker.getLatLng();
+
+        // Animación suave (flyTo) con zoom 16
+        map.flyTo(latlng, 16, {
+            duration: 1.0 // 1 segundo de animación
+        });
+
+        // Mostrar popup por 2 segundos
+        ubicacionActualMarker.openPopup();
+        setTimeout(() => {
+            if (ubicacionActualMarker) {
+                ubicacionActualMarker.closePopup();
+            }
+        }, 2000);
+
+    } else {
+        // Aún no hay ubicación
+        alert("Aún no se ha detectado tu ubicación. Esperá un momento.");
+    }
+}
+
+/**
+ * Crea el control personalizado (botón) de Leaflet.
+ */
+function crearControlMiUbicacion() {
+    L.Control.MiUbicacion = L.Control.extend({
+        options: {
+            position: 'bottomright' // Posición por defecto
+        },
+
+        onAdd: function (map) {
+            // Crea el contenedor del botón
+            var container = L.DomUtil.create('div', 'leaflet-control leaflet-bar boton-mi-ubicacion');
+
+            // Crea el link/botón interno
+            var link = L.DomUtil.create('a', 'boton-mi-ubicacion-link', container);
+            link.href = '#';
+            link.title = 'Centrar en mi ubicación';
+            link.innerHTML = '🎯'; // Emoji de "target"
+
+            // Evita que el clic en el botón se propague al mapa y llama a nuestra función
+            L.DomEvent.on(link, 'click', L.DomEvent.stop)
+                .on(link, 'click', L.DomEvent.preventDefault)
+                .on(link, 'click', centrarEnMiUbicacion);
+
+            return container;
+        }
+    });
+
+    // "Fábrica" para crear el control fácilmente (ej: L.control.miUbicacion())
+    L.control.miUbicacion = function (opts) {
+        return new L.Control.MiUbicacion(opts);
+    }
+}
+
+
 //  INICIALIZACIÓN DEL MAPA
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -47,20 +181,24 @@ document.addEventListener("DOMContentLoaded", function () {
         zoomControl: false
     });
 
-    // Añade control de zoom en bottomright
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    
 
     // Añade control de capas en bottomleft.
     L.control.layers(baseMaps, null, { position: 'bottomleft' }).addTo(map);
 
-   
+    crearControlMiUbicacion();
+
+    L.control.miUbicacion({ position: 'bottomright' }).addTo(map);
+
+    // Añade control de zoom en bottomright
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     // Control geocoder restringido a Argentina
     mainGeocoderService = new L.Control.Geocoder.nominatim({
         geocodingQueryParams: { countrycodes: 'ar' }
     });
 
-    // 2. Creamos el CONTROL (la UI) y le pasamos el servicio que acabamos de crear
+    // 2. Creamos el CONTROL
     var geocoder = L.Control.geocoder({
         defaultMarkGeocode: false,
         position: 'topleft',
@@ -68,7 +206,7 @@ document.addEventListener("DOMContentLoaded", function () {
         geocoder: mainGeocoderService // <-- Le pasamos la variable global
     })
         .on('markgeocode', function (e) {
-    // --- *** FIN DEL CAMBIO *** ---
+    
         
             var latlng = e.geocode.center;
             var nombreLugar = e.geocode.name;
@@ -309,7 +447,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     map.addControl(drawControl);
 
-
+    
 
     // Evento al CREAR un polígono
     map.on(L.Draw.Event.CREATED, function (event) {
@@ -343,7 +481,8 @@ document.addEventListener("DOMContentLoaded", function () {
             borrarPoligono(id); 
         });
     });
-    
+
+    iniciarSeguimientoUbicacion();
 });
 
 
