@@ -8,7 +8,8 @@ var drawnItems = new L.FeatureGroup();
 let estaCargando = false; // para evitar duplicados
 var mainGeocoderService;
 var panelRutaDiv = null;
-
+var ubicacionActualMarker = null;
+var watchId = null;
 
 
 //  INICIALIZACIÓN DEL MAPA
@@ -51,6 +52,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Añade control de capas en bottomleft.
     L.control.layers(baseMaps, null, { position: 'bottomleft' }).addTo(map);
+
+   
 
     // Control geocoder restringido a Argentina
     mainGeocoderService = new L.Control.Geocoder.nominatim({
@@ -104,7 +107,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Router OSRM para rutas.
     router = L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', language: 'es', alternatives: false });
 
-    // Rutas predefinidas (1, 2, 3) ...
+    // Rutas predefinidas (1, 2, 3)
     var ruta1 = L.Routing.control({
         waypoints: [
             L.latLng(-34.6037, -58.3816),
@@ -232,8 +235,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     function restaurarEstadoCapas() {
-        // 1. Restaurar Marcadores
-        // getItem puede devolver "true", "false" o null (si nunca se guardó)
+        // Restaurar Marcadores
         const verMarcadores = localStorage.getItem('mapaVerMarcadores');
         if (verMarcadores !== null) { // Solo si ya hay un valor guardado
             const isChecked = (verMarcadores === 'true'); // Convertir string a boolean
@@ -284,7 +286,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     
-    // 3. CONTROLES DE DIBUJO
+    // CONTROLES DE DIBUJO
     
 
     var drawControl = new L.Control.Draw({
@@ -306,6 +308,8 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
     map.addControl(drawControl);
+
+
 
     // Evento al CREAR un polígono
     map.on(L.Draw.Event.CREATED, function (event) {
@@ -372,25 +376,58 @@ window.iniciarRuta = function (destLat, destLng, nombreDestino) {
     //  popup para elegir origen
     mostrarOpcionesOrigen(destLat, destLng, nombreDestino);
 }
-
 /**
- * popup con opciones para elegir el origen de la ruta
+ * Muestra un popup con opciones para elegir el origen de la ruta
  */
 function mostrarOpcionesOrigen(destLat, destLng, nombreDestino) {
     const safeName = nombreDestino ? nombreDestino.replace(/'/g, "\\'") : '';
+
+   
+    let opcionesMarcadores = '<option value="">-- Elegí un marcador guardado --</option>';
+    const marcadores = Object.values(marcadoresEnMapa); // Usa la variable global
+
+    if (marcadores.length > 0) {
+        
+        marcadores.sort((a, b) => a.markerData.nombre.localeCompare(b.markerData.nombre));
+
+        marcadores.forEach(pin => {
+            const data = pin.markerData;
+           
+            const nombreHtml = data.nombre.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            opcionesMarcadores += `<option value="${data.id}">${nombreHtml}</option>`;
+        });
+    } else {
+        opcionesMarcadores = '<option value="" disabled>No tenés marcadores guardados</option>';
+    }
+  
+
+
     const popupContent = `
-        <div style="padding: 10px; min-width: 220px;">
+        <div style="padding: 10px; min-width: 240px;">
             <h4 style="margin-top: 0;">📍 ¿Desde dónde salís?</h4>
+            
             <button onclick="usarUbicacionActual(${destLat}, ${destLng}, '${safeName}')" 
                     style="width: 100%; padding: 10px; margin-bottom: 8px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px;">
                 📍 Mi ubicación actual
             </button>
+            
             <button onclick="elegirOtroPunto(${destLat}, ${destLng}, '${safeName}')" 
-                    style="width: 100%; padding: 10px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px;">
-                🔍 Indicar origen
+                    style="width: 100%; padding: 10px; margin-bottom: 8px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px;">
+                🔍 Indicar origen (Buscar)
             </button>
+
+            <div style="margin-top: 8px; border-top: 1px solid #ddd; padding-top: 10px;">
+                <select id="select-marcador-origen" 
+                        style="width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 4px; background: white;">
+                    ${opcionesMarcadores}
+                </select>
+                <button onclick="usarMarcadorSeleccionado(${destLat}, ${destLng}, '${safeName}')" 
+                        style="width: 100%; padding: 10px; cursor: pointer; background: #ffc107; color: #333; border: none; border-radius: 4px; font-weight: bold;">
+                    🏁 Ir desde marcador
+                </button>
+            </div>
             <button onclick="map.closePopup()" 
-                    style="width: 100%; padding: 8px; margin-top: 8px; cursor: pointer; background: #6c757d; color: white; border: none; border-radius: 4px;">
+                    style="width: 100%; padding: 8px; margin-top: 10px; cursor: pointer; background: #6c757d; color: white; border: none; border-radius: 4px;">
                 Cancelar
             </button>
         </div>
@@ -452,6 +489,41 @@ window.usarUbicacionActual = function (destLat, destLng, nombreDestino) {
             maximumAge: 0
         }
     );
+}
+
+
+window.usarMarcadorSeleccionado = function (destLat, destLng, nombreDestino) {
+    const selectEl = document.getElementById('select-marcador-origen');
+    if (!selectEl) {
+        console.error("No se encontró el <select> 'select-marcador-origen'");
+        return;
+    }
+
+    const selectedId = selectEl.value;
+
+    if (!selectedId) {
+        alert('Por favor, elegí un marcador de la lista desplegable.');
+        return;
+    }
+
+    // Usar la variable global para encontrar el marcador
+    const pin = marcadoresEnMapa[selectedId];
+
+    if (!pin || !pin.markerData) {
+        alert('Error: No se pudieron encontrar los datos del marcador seleccionado.');
+        console.error("No se encontró el pin con ID:", selectedId, "en", marcadoresEnMapa);
+        return;
+    }
+
+    const data = pin.markerData;
+    const origenLat = data.latitud;
+    const origenLng = data.longitud;
+    const nombreOrigen = data.nombre;
+
+    map.closePopup();
+
+    // Llamar a la función final que crea la ruta
+    crearRutaCompleta(origenLat, origenLng, nombreOrigen, destLat, destLng, nombreDestino);
 }
 
 
@@ -544,7 +616,7 @@ window.elegirOtroPunto = function (destLat, destLng, nombreDestino) {
         window._origenGeocoderInput = origenInput;
 
       
-        const handler = async function (evt) { // <--- 'async' agregado
+        const handler = async function (evt) { 
             if (evt.type === 'click' || (evt.type === 'keydown' && evt.key === 'Enter')) {
                 const query = origenInput.value && origenInput.value.trim();
                 if (!query) {
@@ -606,15 +678,15 @@ window.elegirOtroPunto = function (destLat, destLng, nombreDestino) {
                                 return;
                             }
 
-                            // 1. Crear la ruta final
+                            // Crear la ruta final
                             crearRutaCompleta(selectedLatlng.lat, selectedLatlng.lng, selectedName, destLat, destLng, nombreDestino);
 
-                            // 2. Limpieza 
+                            // Limpieza 
                             try {
                                 origenInput.removeEventListener('keydown', window._origenGeocoderHandler);
                                 origenBtn.removeEventListener('click', window._origenGeocoderHandler);
                                 origenWrapper.parentNode && origenWrapper.parentNode.removeChild(origenWrapper);
-                            } catch (e) { /* ignore */ }
+                            } catch (e) {  }
 
                             window._origenGeocoderInput = null;
                             window._origenGeocoderHandler = null;
@@ -643,14 +715,13 @@ window.elegirOtroPunto = function (destLat, destLng, nombreDestino) {
     }, 150); // delay
 };
 
-/**
- * Crea la ruta completa con origen y destino definidos
- */
+
+
 /**
  * Crea la ruta completa con origen y destino definidos
  */
 function crearRutaCompleta(origenLat, origenLng, nombreOrigen, destLat, destLng, nombreDestino) {
-    // Remover control anterior si existe (evitamos duplicados)
+    // Remueve control anterior si existe para evitar duplicados
     if (window.controlRutaDinamica) {
         try {
             map.removeControl(window.controlRutaDinamica);
@@ -685,20 +756,20 @@ function crearRutaCompleta(origenLat, origenLng, nombreOrigen, destLat, destLng,
             styles: [{ color: '#6FA1EC', weight: 6, opacity: 0.8 }]
         },
 
-        // --- *** CAMBIOS CLAVE *** ---
+     
         // 1. Ocultamos el panel de la derecha por defecto
         show: false,
         collapsible: false,
-        fitSelectedRoutes: false, // Lo manejamos nosotros con fitBounds
-        // --- *** FIN CAMBIOS *** ---
+        fitSelectedRoutes: false, 
+ 
 
         createMarker: function (i, waypoint, n) {
 
             let label = waypoint.name;
             let iconUrl = ''; // Se decide abajo
 
-            // --- *** CAMBIO CLAVE *** ---
-            // Ahora hay 3 casos: Origen, Destino y Paradas
+       
+            //3 casos: Origen, Destino y Paradas
 
             if (i === 0) {
                 // Caso 1: Origen (A)
@@ -715,10 +786,10 @@ function crearRutaCompleta(origenLat, origenLng, nombreOrigen, destLat, destLng,
                 iconUrl = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png';
                 if (!label) label = `Parada ${i}`;
             }
-            // --- *** FIN CAMBIO *** ---
+          
 
-            // El 'label' ahora incluye la letra (A, B, C...)
-            const letra = String.fromCharCode(65 + i); // 65 = 'A'
+            
+            const letra = String.fromCharCode(65 + i); 
             const popupLabel = `<b>${letra}: ${label}</b>`;
 
             return L.marker(waypoint.latLng, {
@@ -731,17 +802,17 @@ function crearRutaCompleta(origenLat, origenLng, nombreOrigen, destLat, destLng,
                     popupAnchor: [1, -34],
                     shadowSize: [41, 41]
                 })
-            }).bindPopup(popupLabel); // <-- 'popupLabel' actualizado
+            }).bindPopup(popupLabel);
         }
     }).addTo(map);
 
-    // --- *** NUEVA LLAMADA *** ---
-    // 2. Llamamos a nuestra función para crear el panel personalizado
+  
+    // Llamamos a nuestra función para crear el panel personalizado
     crearPanelRuta(window.controlRutaDinamica, nombreOrigen, nombreDestino);
-    // --- *** FIN NUEVA LLAMADA *** ---
 
 
-    // Ajustar vista para mostrar toda la ruta
+
+    // Ajusta vista para mostrar toda la ruta
     setTimeout(() => {
         try {
             map.fitBounds([
@@ -826,14 +897,14 @@ async function buscarYMostrarResultados(query, resultsContainer, index) {
                 const name = item.dataset.name;
                 const nuevoLatLng = L.latLng(lat, lon);
 
-                // 1. Actualizar la ruta (usando el ÍNDICE)
+                //  Actualizar la ruta (usando el ÍNDICE)
                 actualizarWaypoint(index, nuevoLatLng, name);
 
-                // 2. Actualizar el valor del input (buscándolo por su ID)
+                //  Actualizar el valor del input (buscándolo por su ID)
                 const inputEl = document.getElementById(`input-waypoint-${index}`);
                 if (inputEl) inputEl.value = name;
 
-                // 3. Ocultar la lista
+                //  Ocultar la lista
                 resultsContainer.innerHTML = '';
                 resultsContainer.style.display = 'none';
             };
@@ -846,84 +917,6 @@ async function buscarYMostrarResultados(query, resultsContainer, index) {
         resultsContainer.innerHTML = '<div class="waypoint-result-item loading" style="color: red;">Error al buscar.</div>';
     }
 }
-
-
-/**
- * Busca en Nominatim y muestra los resultados en un div.
- * @param {string} query - Texto a buscar.
- * @param {HTMLElement} resultsContainer - El <div> donde se mostrarán los resultados.
- * @param {'A' | 'B'} tipoWaypoint - 'A' o 'B', para pasarlo al callback.
- */
-async function buscarYMostrarResultados(query, resultsContainer, tipoWaypoint) {
-    if (!query || query.trim().length < 3) {
-        resultsContainer.innerHTML = '';
-        resultsContainer.style.display = 'none';
-        return;
-    }
-
-    // Mostrar "Buscando..."
-    resultsContainer.innerHTML = '<div class="waypoint-result-item loading">Buscando...</div>';
-    resultsContainer.style.display = 'block';
-
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&countrycodes=ar&limit=5&format=json`;
-
-    try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Error de red');
-        const results = await response.json();
-
-        resultsContainer.innerHTML = ''; // Limpiar "Buscando..."
-
-        if (!results || results.length === 0) {
-            resultsContainer.innerHTML = '<div class="waypoint-result-item loading">No se encontraron resultados.</div>';
-            return;
-        }
-
-        // Llenar la lista con los resultados
-        results.forEach(r => {
-            if (!r.lat || !r.lon || !r.display_name) return;
-
-            const item = document.createElement('div');
-            item.className = 'waypoint-result-item';
-            item.textContent = `📍 ${r.display_name}`;
-
-            // Guardamos los datos en el elemento para usarlos al hacer clic
-            item.dataset.lat = r.lat;
-            item.dataset.lon = r.lon;
-            item.dataset.name = r.display_name;
-
-            // --- Evento Click en un resultado ---
-            item.onclick = () => {
-                const lat = item.dataset.lat;
-                const lon = item.dataset.lon;
-                const name = item.dataset.name;
-                const nuevoLatLng = L.latLng(lat, lon);
-
-                // 1. Actualizar la ruta
-                actualizarWaypoint(tipoWaypoint, nuevoLatLng, name);
-
-                // 2. Actualizar el valor del input
-                if (tipoWaypoint === 'A') {
-                    document.getElementById('input-origen').value = name;
-                } else {
-                    document.getElementById('input-destino').value = name;
-                }
-
-                // 3. Ocultar la lista de resultados
-                resultsContainer.innerHTML = '';
-                resultsContainer.style.display = 'none';
-            };
-
-            resultsContainer.appendChild(item);
-        });
-
-    } catch (error) {
-        console.error("Error en buscarYMostrarResultados:", error);
-        resultsContainer.innerHTML = '<div class="waypoint-result-item loading" style="color: red;">Error al buscar.</div>';
-    }
-}
-
-
 
 
 // FUNCIONES MARCADORES
@@ -944,12 +937,11 @@ async function cargarMarcadores() {
 function agregarMarcadorAlMapa(marcador) {
     const latLng = [marcador.latitud, marcador.longitud];
 
-    // Se crea el pin (sin añadirlo al mapa)
+    // Se crea el pin
     var pin = L.marker(latLng);
 
     pin.markerData = { id: marcador.id, nombre: marcador.nombre, latitud: marcador.latitud, longitud: marcador.longitud };
 
-    // Escapamos el nombre para que no rompa el 'onclick'
     var nombreEscapado = marcador.nombre.replace(/'/g, "\\'");
 
     var popupContent = `
@@ -969,7 +961,7 @@ function agregarMarcadorAlMapa(marcador) {
     `;
     pin.bindPopup(popupContent);
 
-    // Se añade al GRUPO (no al 'map')
+  
     pin.addTo(marcadoresGroup);
 
     marcadoresEnMapa[marcador.id] = pin;
@@ -978,15 +970,14 @@ function agregarMarcadorAlMapa(marcador) {
 
 
 
-// Abre popup para crear un nuevo marcador en la posición dada.
-// Reemplazá tu función original por esta
+// Abre popup para crear un nuevo marcador en la posición dada
 function abrirPopupParaNuevoMarcador(latlng) {
      var lat = latlng.lat.toFixed(6);
      var lng = latlng.lng.toFixed(6);
 
-    // Nombre genérico que le pasaremos a la función de ruteo
+    // Nombre que le pasaremos a la función de ruteo
     var nombreGenerico = 'Punto seleccionado';
-    // Escapamos las comillas por si acaso
+    
     var nombreEscapado = nombreGenerico.replace(/'/g, "\\'");
 
      var popupContent = `
@@ -1037,7 +1028,6 @@ async function guardarMarcador(event, lat, lng) {
 }
 
 // Elimina marcador en la API y lo quita del mapa local.
-// REEMPLAZÁ TU FUNCIÓN 'borrarMarcador' POR ESTA
 async function borrarMarcador(event, id) {
     event.stopPropagation();
     if (!confirm("¿Seguro que querés borrar este marcador?")) return;
@@ -1046,23 +1036,20 @@ async function borrarMarcador(event, id) {
         const response = await fetch(`/api/marcadores/${id}`, { method: 'DELETE' });
         if (!response.ok) throw new Error('Error al borrar el marcador');
 
-        // --- INICIO DEL ARREGLO ---
-
-        // 1. Cerramos el popup ANTES de tocar el marcador.
-        // Esto evita que Leaflet se confunda.
+      
         map.closePopup();
 
-        // 2. Buscamos el marcador en nuestro objeto local
+        
         var pin = marcadoresEnMapa[id];
 
-        // 3. Verificamos que existe y lo borramos
+        
         if (pin) {
             marcadoresGroup.removeLayer(pin);
             delete marcadoresEnMapa[id];
         } else {
             console.warn(`El marcador con id ${id} no se encontró en el caché local.`);
         }
-        // --- FIN DEL ARREGLO ---
+       
 
     } catch (error) {
         console.error("Error en borrarMarcador:", error);
@@ -1089,13 +1076,12 @@ function mostrarFormularioEdicion(event, id) {
 }
 
 // Restaura popup original si se cancela la edición.
-// Restaura popup original si se cancela la edición.
+
 function cancelarEdicion(event, id) {
     event.stopPropagation();
     var pin = marcadoresEnMapa[id];
     var data = pin.markerData;
 
-    // Escapamos el nombre aquí también
     var nombreEscapado = data.nombre.replace(/'/g, "\\'");
 
     var popupContent = `
@@ -1117,7 +1103,7 @@ function cancelarEdicion(event, id) {
 }
 
 
-// Envía PUT para actualizar el nombre y actualiza el popup local.
+
 // Envía PUT para actualizar el nombre y actualiza el popup local.
 async function guardarEdicion(event, id) {
     event.stopPropagation();
@@ -1157,7 +1143,7 @@ async function guardarEdicion(event, id) {
 
 
 // ===================================================================
-//  FUNCIONES MENU
+//  FUNCIONES MENU RUTAS
 // ===================================================================
 
 function formatDistance(meters) {
@@ -1185,10 +1171,7 @@ function formatTime(totalSeconds) {
     return parts.join(' ');
 }
 
-/**
- * Crea y gestiona el panel de ruta personalizado a la izquierda.
- * MODIFICADA para incluir inputs de búsqueda.
- */
+
 /**
  * Crea y gestiona el panel de ruta personalizado a la izquierda.
  * MODIFICADA para ser dinámica y soportar múltiples paradas.
@@ -1296,7 +1279,7 @@ function crearPanelRuta(control, nombreOrigen, nombreDestino) {
     // --- FIN DEL MANEJADOR DE REDIBUJO ---
 
 
-    // --- LISTENERS DEL PANEL ---
+    // --- FUNCIONARDAS DEL PANEL ---
 
     // Botón de Cerrar Ruta
     panelRutaDiv.querySelector('#btnCerrarRuta').onclick = function () {
@@ -1317,7 +1300,7 @@ function crearPanelRuta(control, nombreOrigen, nombreDestino) {
         this.textContent = panelRutaDiv.classList.contains('minimizado') ? '❐' : '_';
     };
 
-    // (Req. 2) Info de Ruta
+    //  Info de Ruta
     control.on('routesfound', function (e) {
         if (e.routes && e.routes.length > 0) {
             var summary = e.routes[0].summary;
@@ -1334,7 +1317,7 @@ function crearPanelRuta(control, nombreOrigen, nombreDestino) {
         if (tiempoEl) tiempoEl.textContent = "";
     });
 
-    // (Req. 3) Botón "+ Agregar Parada"
+    //Botón "Agregar Parada"
     panelRutaDiv.querySelector('#btnAgregarParada').onclick = function () {
         const numWaypoints = control.getWaypoints().length;
         // Agrega un waypoint nulo justo antes del destino (índice numWaypoints - 1)
@@ -1425,14 +1408,14 @@ async function cargarPoligonos() {
             `;
             polyLayer.bindPopup(popupContent);
 
-            // c. Lo agregamos a la capa "drawnItems"
+            //  Lo agregamos a la capa "drawnItems"
             drawnItems.addLayer(polyLayer);
         });
 
     } catch (error) {
         console.error("Error en cargarPoligonos:", error);
     } finally {
-        estaCargando = false; // Liberamos la bandera
+        estaCargando = false; 
     }
 }
 

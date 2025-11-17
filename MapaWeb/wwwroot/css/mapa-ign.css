@@ -1,6 +1,6 @@
-﻿/* ===================================================================
+﻿/* 
    ESTILOS GENERALES DEL MAPA Y UI
-   =================================================================== */
+  */
 
 #mapaIGN {
     position: fixed;
@@ -21,9 +21,26 @@
     z-index: 1000;
 }
 
-/* ===================================================================
-   BOTONES CRUD (Editar/Borrar Marcadores y Polígonos)
-   =================================================================== */
+.boton-mi-ubicacion {
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+    cursor: pointer;
+}
+
+    .boton-mi-ubicacion a {
+        background: white;
+        transition: background 0.2s;
+    }
+
+        .boton-mi-ubicacion a:hover {
+            background: #f4f4f4;
+        }
+
+
+/*
+   BOTONES 
+    */
 
 .btn-borrar, .btn-editar, .btn-guardar {
     color: white;
@@ -34,6 +51,9 @@
     margin-top: 5px;
     border-radius: 3px;
 }
+
+
+
 
 .btn-borrar {
     background-color: #f44336;
@@ -59,9 +79,9 @@
         background-color: #45a049;
     }
 
-/* ===================================================================
+/* 
    MENÚ DESPLEGABLE (Arriba a la derecha)
-   =================================================================== */
+   */
 
 .menu-desplegable {
     background: white;
@@ -328,3 +348,4 @@
         opacity: 0;
         overflow: hidden;
     }
+
